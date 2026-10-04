@@ -1,0 +1,205 @@
+import Link from 'next/link';
+import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
+import { loadMyLeagues } from '@/lib/week';
+import { formatRecord } from '@/lib/format';
+import SignOutButton from '@/components/SignOutButton';
+
+export const metadata = { title: 'Profile' };
+
+interface ProfileRow {
+  username: string;
+  favorite_team: string | null;
+  career_pickem_wins: number;
+  career_pickem_losses: number;
+  career_pickem_pushes: number;
+  career_ml_wins: number;
+  career_ml_losses: number;
+  career_spread_wins: number;
+  career_spread_losses: number;
+  career_total_wins: number;
+  career_total_losses: number;
+  current_pickem_streak: number;
+  longest_pickem_streak: number;
+  weekly_wins_count: number;
+}
+
+export default async function ProfilePage() {
+  const user = (await getSessionUser())!;
+  const supabase = await createServerSupabase();
+
+  const [{ data: profile }, leagues] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select(
+        'username, favorite_team, career_pickem_wins, career_pickem_losses, career_pickem_pushes, career_ml_wins, career_ml_losses, career_spread_wins, career_spread_losses, career_total_wins, career_total_losses, current_pickem_streak, longest_pickem_streak, weekly_wins_count',
+      )
+      .eq('user_id', user.id)
+      .maybeSingle<ProfileRow>(),
+    loadMyLeagues(supabase, user.id),
+  ]);
+
+  const graded =
+    (profile?.career_pickem_wins ?? 0) +
+    (profile?.career_pickem_losses ?? 0) +
+    (profile?.career_pickem_pushes ?? 0);
+
+  const hitRate =
+    graded > 0 ? Math.round(((profile?.career_pickem_wins ?? 0) / graded) * 100) : null;
+
+  return (
+    <main className="pb-4">
+      <header className="px-4 pb-3 pt-3 safe-top">
+        <h1 className="font-display text-2xl font-extrabold tracking-tight">
+          {profile?.username ?? 'Your profile'}
+        </h1>
+        <p className="text-xs text-muted">{user.email}</p>
+      </header>
+
+      <section className="px-4">
+        <div className="card grid grid-cols-3 divide-x divide-line">
+          <Stat
+            label="Record"
+            value={formatRecord(
+              profile?.career_pickem_wins ?? 0,
+              profile?.career_pickem_losses ?? 0,
+              profile?.career_pickem_pushes ?? 0,
+            )}
+          />
+          <Stat label="Hit rate" value={hitRate === null ? '—' : `${hitRate}%`} />
+          <Stat label="Weeks won" value={String(profile?.weekly_wins_count ?? 0)} />
+        </div>
+      </section>
+
+      <section className="mt-5">
+        <h2 className="px-4 pb-2 font-display text-sm font-bold uppercase tracking-wide text-muted">
+          By market
+        </h2>
+        <div className="space-y-2 px-4">
+          <MarketRow
+            label="Moneyline"
+            points={1}
+            wins={profile?.career_ml_wins ?? 0}
+            losses={profile?.career_ml_losses ?? 0}
+          />
+          <MarketRow
+            label="Spread"
+            points={5}
+            wins={profile?.career_spread_wins ?? 0}
+            losses={profile?.career_spread_losses ?? 0}
+          />
+          <MarketRow
+            label="Over / Under"
+            points={5}
+            wins={profile?.career_total_wins ?? 0}
+            losses={profile?.career_total_losses ?? 0}
+          />
+        </div>
+      </section>
+
+      <section className="mt-5 px-4">
+        <div className="card flex items-center justify-between px-4 py-4">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Current streak
+            </div>
+            <div className="font-display mt-0.5 text-xl font-extrabold tabnum">
+              {profile?.current_pickem_streak ?? 0}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              Best ever
+            </div>
+            <div className="font-display mt-0.5 text-xl font-extrabold tabnum text-brand">
+              {profile?.longest_pickem_streak ?? 0}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-5">
+        <h2 className="px-4 pb-2 font-display text-sm font-bold uppercase tracking-wide text-muted">
+          Your leagues
+        </h2>
+        <div className="space-y-2 px-4">
+          {leagues.map((league) => (
+            <div key={league.id} className="card flex items-center justify-between px-4 py-3">
+              <div>
+                <div className="text-sm font-semibold">{league.name}</div>
+                <div className="text-[11px] text-muted">
+                  {league.season}
+                  {league.commissioner_id === user.id && (
+                    <span className="text-brand"> · commissioner</span>
+                  )}
+                </div>
+              </div>
+              <Link
+                href={`/standings?league=${league.id}`}
+                className="btn-ghost h-9 px-3 text-xs"
+              >
+                Standings
+              </Link>
+            </div>
+          ))}
+
+          <div className="flex gap-2">
+            <Link href="/leagues/new" className="btn-ghost h-11 flex-1 text-sm">
+              New league
+            </Link>
+            <Link href="/leagues/join" className="btn-ghost h-11 flex-1 text-sm">
+              Join one
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-8 px-4">
+        <SignOutButton />
+      </section>
+    </main>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="px-2 py-4 text-center">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</div>
+      <div className="font-display mt-1 text-lg font-extrabold tabnum">{value}</div>
+    </div>
+  );
+}
+
+function MarketRow({
+  label,
+  points,
+  wins,
+  losses,
+}: {
+  label: string;
+  points: number;
+  wins: number;
+  losses: number;
+}) {
+  const graded = wins + losses;
+  const rate = graded > 0 ? Math.round((wins / graded) * 100) : null;
+
+  return (
+    <div className="card px-4 py-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold">
+          {label}
+          <span className="ml-2 text-[10px] font-bold text-brand">+{points}</span>
+        </span>
+        <span className="text-sm tabnum text-muted">
+          {formatRecord(wins, losses)}
+          {rate !== null && <span className="ml-2 font-semibold text-ink">{rate}%</span>}
+        </span>
+      </div>
+      {rate !== null && (
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line">
+          <div className="h-full rounded-full bg-brand" style={{ width: `${rate}%` }} />
+        </div>
+      )}
+    </div>
+  );
+}
