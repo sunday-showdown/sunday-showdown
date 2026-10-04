@@ -44,11 +44,24 @@ function settle(market: PickemMarket, margin: number): Grade {
  * with no stored line, an unknown selection) rather than guessing: a wrong
  * result is far worse than an ungraded one, and an ungraded pick is visible.
  */
+/**
+ * A usable score, or null.
+ *
+ * Checks finiteness, not just non-null. A `=== null` test alone lets undefined
+ * and NaN through, and every comparison against NaN is false — so `settle`
+ * returns a push, which is the worst possible failure because it looks like a
+ * real result rather than an error.
+ */
+function finiteOrNull(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 export function gradePick(pick: GradeablePick, game: GradeableGame): Grade {
   if (game.status !== 'final') return PENDING;
-  if (game.homeScore === null || game.awayScore === null) return PENDING;
 
-  const { homeScore, awayScore } = game;
+  const homeScore = finiteOrNull(game.homeScore);
+  const awayScore = finiteOrNull(game.awayScore);
+  if (homeScore === null || awayScore === null) return PENDING;
 
   switch (pick.marketType) {
     case 'moneyline': {
@@ -60,22 +73,23 @@ export function gradePick(pick: GradeablePick, game: GradeableGame): Grade {
 
     case 'spread': {
       if (pick.selection !== 'home' && pick.selection !== 'away') return PENDING;
-      if (pick.contestLine === null) return PENDING;
-      // contestLine is from the picked side's perspective: a favourite carries
-      // a negative line and must cover it.
+      // Finite, not merely non-null: a NaN line also lands on a push, for the
+      // same reason an unusable score does.
+      const line = finiteOrNull(pick.contestLine);
+      if (line === null) return PENDING;
+      // The line is from the picked side's perspective: a favourite carries a
+      // negative line and must cover it.
       const picked = pick.selection === 'home' ? homeScore : awayScore;
       const other = pick.selection === 'home' ? awayScore : homeScore;
-      return settle('spread', picked + pick.contestLine - other);
+      return settle('spread', picked + line - other);
     }
 
     case 'total': {
       if (pick.selection !== 'over' && pick.selection !== 'under') return PENDING;
-      if (pick.contestLine === null) return PENDING;
+      const line = finiteOrNull(pick.contestLine);
+      if (line === null) return PENDING;
       const combined = homeScore + awayScore;
-      const margin =
-        pick.selection === 'over'
-          ? combined - pick.contestLine
-          : pick.contestLine - combined;
+      const margin = pick.selection === 'over' ? combined - line : line - combined;
       return settle('total', margin);
     }
 

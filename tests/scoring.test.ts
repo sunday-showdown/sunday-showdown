@@ -159,6 +159,33 @@ describe('gradePick — ungradeable states', () => {
   it('treats a 0-0 final as a real tie, not missing data', () => {
     expect(gradePick(pick, final(0, 0))).toEqual({ result: 'push', points: 0 });
   });
+
+  it('stays pending for undefined scores instead of reporting a push', () => {
+    // Regression: grading passed raw snake_case database rows in, so the
+    // camelCase score fields were undefined. undefined slipped past a `=== null`
+    // guard, every comparison against NaN was false, and settle() returned a
+    // push — so every pick in the league graded as a push, which looks like a
+    // real result rather than an error.
+    const undefinedScores = {
+      status: 'final',
+      homeScore: undefined as unknown as number | null,
+      awayScore: undefined as unknown as number | null,
+    };
+    expect(gradePick(pick, undefinedScores)).toEqual({ result: 'pending', points: 0 });
+  });
+
+  it('stays pending for NaN scores', () => {
+    const nanScores = { status: 'final', homeScore: NaN, awayScore: 20 };
+    expect(gradePick(pick, nanScores)).toEqual({ result: 'pending', points: 0 });
+  });
+
+  it('stays pending for a NaN line rather than pushing', () => {
+    const badSpread = { marketType: 'spread' as const, selection: 'home', contestLine: NaN };
+    expect(gradePick(badSpread, final(30, 20))).toEqual({ result: 'pending', points: 0 });
+
+    const badTotal = { marketType: 'total' as const, selection: 'over', contestLine: NaN };
+    expect(gradePick(badTotal, final(30, 20))).toEqual({ result: 'pending', points: 0 });
+  });
 });
 
 describe('summarizeWeek', () => {

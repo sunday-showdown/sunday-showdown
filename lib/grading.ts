@@ -102,7 +102,14 @@ export async function gradeWeek(
         selection: pick.selection,
         contestLine: pick.contest_line === null ? null : Number(pick.contest_line),
       },
-      game,
+      // Mapped explicitly: the database row is snake_case and GradeableGame is
+      // camelCase. Passing the row straight through left the scores undefined,
+      // which graded every pick as a push.
+      {
+        status: game.status,
+        homeScore: game.home_score === null ? null : Number(game.home_score),
+        awayScore: game.away_score === null ? null : Number(game.away_score),
+      },
     );
 
     if (grade.result === 'pending') {

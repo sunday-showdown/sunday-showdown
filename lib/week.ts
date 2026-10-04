@@ -51,9 +51,16 @@ export async function loadMyLeagues(
 
   if (error) throw new Error(`failed to load leagues: ${error.message}`);
 
+  // supabase-js cannot tell this join is to-one, so it types the embedded row
+  // as an array even though a single object comes back at runtime. Accept both
+  // rather than asserting one and being wrong.
   return (data ?? [])
-    .map((row) => (row as { leagues: LeagueSummary | null }).leagues)
-    .filter((l): l is LeagueSummary => l !== null)
+    .flatMap((row) => {
+      const embedded = (row as unknown as { leagues: LeagueSummary | LeagueSummary[] | null })
+        .leagues;
+      if (!embedded) return [];
+      return Array.isArray(embedded) ? embedded : [embedded];
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
