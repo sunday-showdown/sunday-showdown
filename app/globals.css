@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark by default: this is used on a phone, on a couch, on a Sunday. */
+:root {
+  --bg: 9 11 16;
+  --surface: 17 20 28;
+  --raised: 25 29 40;
+  --line: 38 44 58;
+  --ink: 237 240 247;
+  --muted: 140 149 170;
+  --brand: 34 197 94;
+  --brand-ink: 6 20 11;
+  --win: 34 197 94;
+  --loss: 244 63 94;
+  --push: 148 163 184;
+  --live: 251 146 60;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: var(--font-sans);
+
+  color-scheme: dark;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  background: rgb(var(--bg));
+  color: rgb(var(--ink));
+  font-family: var(--font-sans);
+  /* Fill the notch area on iOS when installed as a PWA. */
+  min-height: 100dvh;
+}
+
+body {
+  margin: 0;
+  overscroll-behavior-y: none;
+  /* Stop the pick sheet being hidden behind the bottom nav. */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@layer utilities {
+  .tabnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Horizontal scrollers (week selector, team rows) should not show a bar on
+     mobile but must stay keyboard- and wheel-scrollable. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .safe-top {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-surface;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold
+      transition-colors disabled:opacity-50 disabled:pointer-events-none
+      focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
+      focus-visible:outline-brand;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand text-brand-ink hover:bg-brand/90 active:bg-brand/80;
+  }
+
+  .btn-ghost {
+    @apply btn border border-line bg-raised text-ink hover:bg-line/50;
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-line bg-raised px-4 text-base text-ink
+      placeholder:text-muted focus:border-brand focus:outline-none;
+    /* 16px minimum stops iOS Safari zooming the viewport on focus. */
+    min-height: 3rem;
+    font-size: 16px;
+  }
+}
+
+/* Respect a user's reduced-motion setting rather than animating regardless. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
