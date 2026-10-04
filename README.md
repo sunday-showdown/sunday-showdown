@@ -76,14 +76,33 @@ from.
 ### 5. Deploy
 
 Push to GitHub, import the repo in Vercel, and add the same four environment
-variables. `vercel.json` registers the three cron jobs automatically; Vercel
-sends `CRON_SECRET` as a bearer token, and the routes reject anything else.
+variables for Production, Preview and Development.
 
-| Job | Schedule | Does |
-|---|---|---|
-| `/api/cron/sync-games` | every 10 min | teams, schedule, scores, odds |
-| `/api/cron/contests` | every 5 min | open weeks, advance league week, freeze locked lines |
-| `/api/cron/grade` | :05 and :35 | grade settled picks, rebuild standings and career stats |
+### 6. Scheduling
+
+**Vercel's Hobby plan allows cron jobs only once per day**, and a more frequent
+expression fails the deployment. So the schedule lives in GitHub Actions
+(`.github/workflows/cron.yml`) instead, which is free and runs every 10 minutes.
+
+Add two repository secrets under Settings → Secrets and variables → Actions:
+
+| Secret | Value |
+|---|---|
+| `APP_URL` | your deployment URL, no trailing slash — `https://your-app.vercel.app` |
+| `CRON_SECRET` | the same value as the Vercel environment variable |
+
+| Job | Does |
+|---|---|
+| `/api/cron/sync-games` | teams, schedule, scores, odds |
+| `/api/cron/contests` | open weeks, advance league week, freeze locked lines |
+| `/api/cron/grade` | grade settled picks, rebuild standings and career stats |
+
+All three are idempotent, so a delayed or repeated run is harmless. GitHub
+disables scheduled workflows after 60 days without repository activity — if the
+app goes quiet in the offseason, re-enable it under the Actions tab.
+
+On a Vercel Pro plan, delete the workflow and move the schedules into
+`vercel.json` as a `crons` array; Vercel's scheduler is more reliable.
 
 ## Data
 

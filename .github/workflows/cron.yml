@@ -1,0 +1,42 @@
+name: Scheduled jobs
+
+# Vercel's Hobby plan caps cron jobs at once per day, and a more frequent
+# expression fails the deployment outright — so the schedule lives here instead.
+# The endpoints are ordinary authenticated routes; this workflow just calls them.
+#
+# On a Vercel Pro plan you can delete this file and move the schedules back into
+# vercel.json, which is more reliable than GitHub's scheduler.
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub may delay runs under load; the jobs are
+    # idempotent, so a late or repeated run is harmless.
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  # Never let a slow run overlap the next tick.
+  group: scheduled-jobs
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync games, scores and odds
+        run: |
+          curl -sS --fail-with-body --max-time 120 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/sync-games"
+
+      - name: Open contests and freeze locked lines
+        run: |
+          curl -sS --fail-with-body --max-time 120 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/contests"
+
+      - name: Grade settled picks
+        run: |
+          curl -sS --fail-with-body --max-time 120 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/cron/grade"
