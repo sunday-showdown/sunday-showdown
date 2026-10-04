@@ -37,18 +37,9 @@ as $$
   select auth.uid();
 $$;
 
-create or replace function public.is_admin()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select coalesce(
-    (select p.is_admin from public.profiles p where p.user_id = auth.uid()),
-    false
-  );
-$$;
+-- is_admin() lives in 0002, with the profiles table it reads: Postgres
+-- validates a `language sql` body at creation time, so defining it here would
+-- fail against a table that does not exist yet.
 
 
 -- updated_at maintenance -----------------------------------------------------

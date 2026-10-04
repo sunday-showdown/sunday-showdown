@@ -43,6 +43,23 @@ create table public.profiles (
 create trigger profiles_touch before update on public.profiles
   for each row execute function public.touch_updated_at();
 
+
+-- Defined here rather than in 0001 because it reads profiles, and a
+-- `language sql` body is validated against the catalogue when it is created.
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(
+    (select p.is_admin from public.profiles p where p.user_id = auth.uid()),
+    false
+  );
+$$;
+
+
 alter table public.profiles enable row level security;
 
 -- Profiles are league-visible by design: standings, activity feeds and H2H all
