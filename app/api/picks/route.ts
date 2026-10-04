@@ -105,11 +105,18 @@ export async function POST(request: Request) {
       return Response.json({ error: 'could not load odds' }, { status: 500 });
     }
 
-    const oddsByGame = new Map<string, typeof oddsRows>();
+    type OddsRecord = { market_type: string; selection: string; line: number | null; american_odds: number | null };
+    const oddsByGame = new Map<string, OddsRecord[]>();
     for (const row of oddsRows ?? []) {
-      const list = oddsByGame.get(row.game_id as string) ?? [];
-      list.push(row);
-      oddsByGame.set(row.game_id as string, list);
+      const gameId = row.game_id as string;
+      const list = oddsByGame.get(gameId) ?? [];
+      list.push({
+        market_type: row.market_type as string,
+        selection: row.selection as string,
+        line: row.line === null ? null : Number(row.line),
+        american_odds: row.american_odds as number | null,
+      });
+      oddsByGame.set(gameId, list);
     }
 
     for (const pick of accepted) {

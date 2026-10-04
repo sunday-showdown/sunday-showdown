@@ -6,7 +6,9 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PUBLIC_PREFIXES = ['/', '/login', '/signup', '/reset-password', '/join', '/about'];
+// /offline must be public: the service worker serves it when the network is
+// gone, and redirecting it to /login would show a page that cannot load.
+const PUBLIC_PREFIXES = ['/', '/login', '/signup', '/reset-password', '/join', '/about', '/offline'];
 const PUBLIC_FILE = /\.(svg|png|jpg|jpeg|webp|ico|json|txt|webmanifest|js)$/;
 
 function isPublic(pathname: string): boolean {

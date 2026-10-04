@@ -7,6 +7,7 @@
 import { createAdminClient, isAuthorizedCron } from '@/lib/supabase/admin';
 import { fetchScoreboard, EspnError } from '@/lib/espn/client';
 import { syncWeek } from '@/lib/espn/sync';
+import { syncTeams } from '@/lib/espn/teams';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -24,12 +25,17 @@ export async function GET(request: Request) {
   const startedAt = new Date();
 
   try {
+    // Teams first: nfl_games has FKs to nfl_teams on both sides, so a game
+    // sync against an empty team table fails every insert.
+    const teams = await syncTeams(db);
+
     const scoreboard = await fetchScoreboard({
       week: weekParam ? Number(weekParam) : undefined,
       season: seasonParam ? Number(seasonParam) : undefined,
     });
 
     const report = await syncWeek(db, scoreboard);
+    report.warnings.push(...teams.warnings);
 
     const completedAt = new Date();
     await db.from('sync_logs').insert({

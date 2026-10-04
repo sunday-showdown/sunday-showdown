@@ -30,6 +30,9 @@ export async function openWeek(
   db: SupabaseClient,
   season: number,
   week: number,
+  // Only the call for the live week advances leagues onto it; the look-ahead
+  // call that opens next week's contest must not push leagues a week forward.
+  options: { advanceLeagueWeek?: boolean } = {},
 ): Promise<OpenReport> {
   const report: OpenReport = { challengesCreated: 0, leaguesConsidered: 0, warnings: [] };
 
@@ -53,12 +56,28 @@ export async function openWeek(
 
   const { data: leagues, error: leaguesError } = await db
     .from('leagues')
-    .select('id')
+    .select('id, current_week')
     .eq('season', season);
 
   if (leaguesError) throw new Error(`failed to read leagues: ${leaguesError.message}`);
   report.leaguesConsidered = leagues?.length ?? 0;
   if (!leagues || leagues.length === 0) return report;
+
+  // Advance each league's current_week. Nothing else moves it, so without this
+  // a league created in week 1 shows week 1 for the rest of the season. Only
+  // forwards, and only for leagues actually behind — a trigger rejects a
+  // backwards move from a stale job.
+  const behind = options.advanceLeagueWeek
+    ? leagues.filter((l) => (l.current_week as number) < week).map((l) => l.id as string)
+    : [];
+  if (behind.length > 0) {
+    const { error: weekError } = await db
+      .from('leagues')
+      .update({ current_week: week })
+      .in('id', behind);
+
+    if (weekError) report.warnings.push(`advancing current_week: ${weekError.message}`);
+  }
 
   const { data: existing, error: existingError } = await db
     .from('pickem_challenges')

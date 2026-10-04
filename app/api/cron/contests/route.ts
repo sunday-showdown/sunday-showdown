@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   try {
     const { season, week } = await fetchCurrentWeek();
 
-    const opened = [await openWeek(db, season, week)];
+    const opened = [await openWeek(db, season, week, { advanceLeagueWeek: true })];
     if (week < LAST_REGULAR_WEEK) {
       opened.push(await openWeek(db, season, week + 1));
     }

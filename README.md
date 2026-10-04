@@ -1,0 +1,138 @@
+# Sunday Showdown
+
+A private NFL pick'em app for a friend group. One pick per game — moneyline
+(+1), spread (+5) or the total (+5) — locking at the first Sunday kickoff and
+settling itself from ESPN's free data feed.
+
+Next.js on Vercel, Postgres on Supabase, no paid services.
+
+## Status
+
+Built and complete:
+
+- **Pick'em** — the full loop: schedule, odds, picking, locking, line freezing, grading, standings, career stats
+- **Auth** — email/password, email confirmation, password reset
+- **Leagues** — create, invite code, join, commissioner role
+- **PWA** — installable, read-only offline for standings and profile
+
+Schema exists but **no UI or jobs yet**: TD Scorer, Survivor, head-to-head,
+playground, social feed, notifications, pots. The tables, constraints and RLS
+policies for all of them are in `supabase/migrations`, so they can be built
+without further schema work.
+
+Not built: push notifications.
+
+## Setup
+
+### 1. Supabase
+
+Create a free project at supabase.com, then run the migrations **in order**.
+Either paste each file into the SQL editor, or use the CLI:
+
+```bash
+npx supabase link --project-ref <your-project-ref> && npx supabase db push
+```
+
+Migrations are ordered and must be applied in sequence — later ones depend on
+types and functions created by earlier ones.
+
+### 2. Environment
+
+Copy `.env.example` to `.env.local` and fill it in from Supabase →
+Project Settings → API:
+
+| Variable | Where it comes from |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `anon` public key |
+| `SUPABASE_SERVICE_ROLE_KEY` | `service_role` key — **server only, never expose** |
+| `CRON_SECRET` | Any long random string you generate |
+
+### 3. Run it
+
+```bash
+npm install && npm run dev
+```
+
+### 4. Seed the data
+
+The cron routes are also callable by hand. With the dev server running:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/sync-games
+```
+
+That writes the 32 teams, the current week's schedule and its odds. Then open
+contests and freeze anything already locked:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/contests
+```
+
+Order matters the first time: `sync-games` seeds `nfl_teams`, which
+`nfl_games` references, and `contests` needs a slate to compute a lock time
+from.
+
+### 5. Deploy
+
+Push to GitHub, import the repo in Vercel, and add the same four environment
+variables. `vercel.json` registers the three cron jobs automatically; Vercel
+sends `CRON_SECRET` as a bearer token, and the routes reject anything else.
+
+| Job | Schedule | Does |
+|---|---|---|
+| `/api/cron/sync-games` | every 10 min | teams, schedule, scores, odds |
+| `/api/cron/contests` | every 5 min | open weeks, advance league week, freeze locked lines |
+| `/api/cron/grade` | :05 and :35 | grade settled picks, rebuild standings and career stats |
+
+## Data
+
+Everything comes from one free, keyless endpoint:
+
+```
+site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard
+```
+
+It carries schedule, live scores, final results and DraftKings lines for all
+three markets. Two behaviours worth knowing:
+
+- **Odds disappear at kickoff.** An empty odds array means the game started, not
+  that lines were withdrawn. `lib/espn/sync.ts` preserves captured lines rather
+  than deactivating them.
+- **Values are strings.** `"-9.5"`, `"+400"`, `"o47.5"`. `lib/espn/parse.ts`
+  handles the coercion, including `PK` and `EVEN`.
+
+ESPN publishes no anytime-TD player props, which is why TD Scorer point values
+are derived from season production (`derive_td_point_value` in migration 0005)
+with a commissioner override.
+
+## Rules enforced by the database
+
+These are competition-critical, so they are constraints and triggers rather than
+application checks — application code can be bypassed, as it was in the previous
+build.
+
+| Rule | Mechanism |
+|---|---|
+| One market per game, mutually exclusive | `unique (user_id, challenge_id, game_id)` on `picks` |
+| Game status never regresses | `enforce_game_status_progression` trigger |
+| Frozen lines immutable, undeletable | `enforce_contest_line_immutability` trigger |
+| Lock covers insert, update **and** delete | `enforce_pick_lock` + `enforce_pick_delete_lock` |
+| A final game must have scores | `nfl_games_final_has_scores` check |
+| Grading uses the stored line, never live odds | `contest_line` snapshotted on the pick |
+| Users cannot grant themselves admin | column grants, migration 0009 |
+
+Grading is idempotent: career stats are recomputed from `picks`, never
+incremented, so a re-run after a score correction produces the same numbers.
+
+## Tests
+
+```bash
+npm test
+```
+
+Covers the money paths — odds parsing, grading, ranking, the weekly lock, pick
+validation, status progression. Fixtures are real payload shapes captured from
+the live ESPN endpoint, not invented ones.
+
+CI runs typecheck, tests and a production build on every push and pull request.

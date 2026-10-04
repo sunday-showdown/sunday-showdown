@@ -58,11 +58,11 @@ export default async function LandingPage() {
       <section className="card mt-10 p-5">
         <h2 className="font-display text-lg font-bold">How a week works</h2>
         <ol className="mt-4 space-y-4">
-          {[
+          {([
             ['Pick', 'Choose one market per game. Change your mind as often as you like until lock.'],
             ['Lock', 'At the first Sunday kickoff every card freezes, and the lines you took are kept exactly as they were.'],
             ['Settle', 'Scores arrive automatically. Points, standings and streaks update without anyone doing anything.'],
-          ].map(([title, body], index) => (
+          ] as const).map(([title, body], index) => (
             <li key={title} className="flex gap-3">
               <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/15 text-xs font-bold text-brand">
                 {index + 1}
