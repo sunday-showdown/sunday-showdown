@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/sync-games",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/contests",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/grade",
+      "schedule": "5,35 * * * *"
     }
   ]
 }
