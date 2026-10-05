@@ -3,10 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+// Five tabs is the practical ceiling on a phone. The extra game modes live on
+// Home rather than crowding this, so the bar stays tappable.
 const TABS = [
   { href: '/home', label: 'Home', icon: HomeIcon },
   { href: '/picks', label: 'Picks', icon: PicksIcon },
-  { href: '/standings', label: 'Standings', icon: StandingsIcon },
+  { href: '/feed', label: 'Feed', icon: FeedIcon },
+  { href: '/standings', label: 'Table', icon: StandingsIcon },
   { href: '/profile', label: 'You', icon: ProfileIcon },
 ] as const;
 
@@ -42,7 +45,7 @@ export default function BottomNav() {
   );
 }
 
-// Inline icons rather than an icon package: four glyphs is not worth the
+// Inline icons rather than an icon package: five glyphs is not worth the
 // bundle, and these inherit currentColor.
 function HomeIcon({ filled }: { filled: boolean }) {
   return (
@@ -53,7 +56,7 @@ function HomeIcon({ filled }: { filled: boolean }) {
         strokeWidth="1.8"
         strokeLinejoin="round"
         fill={filled ? 'currentColor' : 'none'}
-        fillOpacity={filled ? 0.15 : 0}
+        fillOpacity={filled ? 0.18 : 0}
       />
     </svg>
   );
@@ -71,9 +74,22 @@ function PicksIcon({ filled }: { filled: boolean }) {
         stroke="currentColor"
         strokeWidth="1.8"
         fill={filled ? 'currentColor' : 'none'}
-        fillOpacity={filled ? 0.15 : 0}
+        fillOpacity={filled ? 0.18 : 0}
       />
       <path d="m8 12.5 2.5 2.5L16 9.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function FeedIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 5.5h16M4 12h16M4 18.5h10"
+        stroke="currentColor"
+        strokeWidth={filled ? '2.6' : '1.8'}
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -101,14 +117,9 @@ function ProfileIcon({ filled }: { filled: boolean }) {
         stroke="currentColor"
         strokeWidth="1.8"
         fill={filled ? 'currentColor' : 'none'}
-        fillOpacity={filled ? 0.15 : 0}
+        fillOpacity={filled ? 0.18 : 0}
       />
-      <path
-        d="M4.5 20.5a7.5 7.5 0 0 1 15 0"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
+      <path d="M4.5 20.5a7.5 7.5 0 0 1 15 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }

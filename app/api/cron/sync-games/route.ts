@@ -8,6 +8,7 @@ import { createAdminClient, isAuthorizedCron } from '@/lib/supabase/admin';
 import { fetchScoreboard, EspnError } from '@/lib/espn/client';
 import { syncWeek } from '@/lib/espn/sync';
 import { syncTeams } from '@/lib/espn/teams';
+import { syncTdWeek } from '@/lib/td';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -37,6 +38,17 @@ export async function GET(request: Request) {
     const report = await syncWeek(db, scoreboard);
     report.warnings.push(...teams.warnings);
 
+    // TD candidates and prices follow the slate they are built from. Allowed to
+    // fail on its own: a roster hiccup must not cost us the scores and odds
+    // that were just written successfully.
+    const td = await syncTdWeek(db, scoreboard.season, scoreboard.week).catch((tdError) => {
+      report.warnings.push(
+        `td sync: ${tdError instanceof Error ? tdError.message : 'failed'}`,
+      );
+      return null;
+    });
+    if (td) report.warnings.push(...td.warnings);
+
     const completedAt = new Date();
     await db.from('sync_logs').insert({
       sync_type: 'espn_scoreboard',
@@ -52,7 +64,7 @@ export async function GET(request: Request) {
       warnings: report.warnings,
     });
 
-    return Response.json({ ok: true, ...report });
+    return Response.json({ ok: true, ...report, td });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown error';
     const completedAt = new Date();

@@ -6,6 +6,7 @@ import { isCardLocked, timeUntilLock } from '@/lib/contest';
 import { formatCountdown, formatKickoff, formatSpread } from '@/lib/format';
 import { pointsForOdds } from '@/lib/odds';
 import EmptyState from '@/components/EmptyState';
+import ModesHub from '@/components/ModesHub';
 
 export const metadata = { title: 'Home' };
 
@@ -171,6 +172,8 @@ export default async function HomePage() {
           </div>
         </section>
       )}
+
+      <ModesHub />
 
       {week.myPicks.length > 0 && (
         <section className="mt-5">

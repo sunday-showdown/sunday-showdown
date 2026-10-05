@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { gradePick, summarizeWeek, rankWeek } from './scoring';
+import { buildWeeklyActivity, writeActivity } from './activity';
 import type { PickemMarket, PickResult } from './types';
 
 export interface GradingReport {
@@ -20,6 +21,7 @@ export interface GradingReport {
   picksStillPending: number;
   resultsWritten: number;
   profilesUpdated: number;
+  activityCreated: number;
   warnings: string[];
 }
 
@@ -61,6 +63,7 @@ export async function gradeWeek(
     picksStillPending: 0,
     resultsWritten: 0,
     profilesUpdated: 0,
+    activityCreated: 0,
     warnings: [],
   };
 
@@ -162,7 +165,94 @@ export async function gradeWeek(
     report,
   );
 
+  report.activityCreated = await generateActivity(db, season, week, report);
+
   return report;
+}
+
+/**
+ * Turn the week's results into feed entries.
+ *
+ * Entries carry a dedup key and are upserted with ignoreDuplicates, so this
+ * running every few minutes alongside grading produces the feed once rather
+ * than repeatedly.
+ */
+async function generateActivity(
+  db: SupabaseClient,
+  season: number,
+  week: number,
+  report: GradingReport,
+): Promise<number> {
+  const { data: results, error } = await db
+    .from('weekly_results')
+    .select('league_id, user_id, total_points, rank, is_winner')
+    .eq('season', season)
+    .eq('week', week);
+
+  if (error) {
+    report.warnings.push(`activity standings: ${error.message}`);
+    return 0;
+  }
+  if (!results || results.length === 0) return 0;
+
+  const { data: pickRows, error: picksError } = await db
+    .from('picks')
+    .select('user_id, league_id, result, points, contest_odds, selection_label, market_type')
+    .eq('season', season)
+    .eq('week', week);
+
+  if (picksError) {
+    report.warnings.push(`activity picks: ${picksError.message}`);
+    return 0;
+  }
+
+  const userIds = [...new Set(results.map((r) => r.user_id as string))];
+  const { data: profiles } = await db
+    .from('profiles')
+    .select('user_id, username')
+    .in('user_id', userIds);
+
+  const usernames = new Map(
+    (profiles ?? []).map((p) => [p.user_id as string, p.username as string]),
+  );
+
+  const leagueIds = [...new Set(results.map((r) => r.league_id as string))];
+  let created = 0;
+
+  for (const leagueId of leagueIds) {
+    const entries = buildWeeklyActivity({
+      season,
+      week,
+      leagueId,
+      standings: results
+        .filter((r) => r.league_id === leagueId)
+        .map((r) => ({
+          userId: r.user_id as string,
+          username: usernames.get(r.user_id as string) ?? 'Someone',
+          totalPoints: Math.round(Number(r.total_points)),
+          rank: (r.rank as number) ?? 0,
+          isWinner: Boolean(r.is_winner),
+        })),
+      picks: (pickRows ?? [])
+        .filter((p) => p.league_id === leagueId)
+        .map((p) => ({
+          user_id: p.user_id as string,
+          league_id: p.league_id as string,
+          result: p.result as string,
+          points: Number(p.points),
+          contest_odds: (p.contest_odds as number) ?? null,
+          selection_label: (p.selection_label as string) ?? null,
+          market_type: p.market_type as string,
+        })),
+      usernames,
+    });
+
+    const written = await writeActivity(db, entries);
+    report.warnings.push(...written.warnings);
+    created += written.created;
+  }
+
+  return created;
 }
 
 async function writeWeeklyResults(
