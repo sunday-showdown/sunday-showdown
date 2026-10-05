@@ -33,7 +33,7 @@ export default async function NotificationsPage() {
       </header>
 
       <section className="px-4 pb-4">
-        <PushToggle publicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null} />
+        <PushToggle publicKey={process.env.VAPID_PUBLIC_KEY ?? null} />
       </section>
 
       {notes.length === 0 ? (
