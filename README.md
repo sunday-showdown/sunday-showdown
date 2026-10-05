@@ -38,15 +38,33 @@ types and functions created by earlier ones.
 
 ### 2. Environment
 
-Copy `.env.example` to `.env.local` and fill it in from Supabase →
-Project Settings → API:
+If the project is already deployed, pull everything rather than retyping it:
+
+```bash
+npx vercel link && npx vercel env pull .env.local --environment=development
+```
+
+That fetches every runtime variable. **`DATABASE_URL` is not among them** — it
+is deliberately absent from Vercel, since it carries the database password and
+is only used to run migrations. Add it by hand:
+
+```
+DATABASE_URL=postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres
+```
+
+Setting up fresh instead? Copy `.env.example` to `.env.local` and fill it in:
 
 | Variable | Where it comes from |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `anon` public key |
-| `SUPABASE_SERVICE_ROLE_KEY` | `service_role` key — **server only, never expose** |
-| `CRON_SECRET` | Any long random string you generate |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → Data API |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | the publishable key |
+| `SUPABASE_SERVICE_ROLE_KEY` | the secret key — **server only, never expose** |
+| `CRON_SECRET` | any long random string you generate |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | `node -e "console.log(JSON.stringify(require('web-push').generateVAPIDKeys()))"` |
+| `VAPID_SUBJECT` | `mailto:` your address |
+
+Push is optional: with no VAPID keys, `pushToUsers` reports `skipped` and
+everything else runs normally.
 
 ### 3. Run it
 
