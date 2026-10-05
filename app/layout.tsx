@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#090b10',
+  themeColor: '#000000',
   width: 'device-width',
   initialScale: 1,
   // Not user-scalable: this is an installed app shell, and pinch-zoom on a

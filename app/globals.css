@@ -2,20 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Dark by default: this is used on a phone, on a couch, on a Sunday. */
+/* Dark by default: this is used on a phone, on a couch, on a Sunday.
+   Pure black ground so the logo sits on its own background. */
 :root {
-  --bg: 9 11 16;
-  --surface: 17 20 28;
-  --raised: 25 29 40;
-  --line: 38 44 58;
-  --ink: 237 240 247;
-  --muted: 140 149 170;
-  --brand: 34 197 94;
-  --brand-ink: 6 20 11;
-  --win: 34 197 94;
-  --loss: 244 63 94;
-  --push: 148 163 184;
-  --live: 251 146 60;
+  --bg: 0 0 0;
+  --surface: 17 15 16;
+  --raised: 28 24 26;
+  --line: 52 44 47;
+  --ink: 245 243 244;
+  --muted: 154 146 150;
+
+  /* Brand red, taken from the logo. White passes AA on it (4.7:1). */
+  --brand: 240 18 25;
+  --brand-ink: 255 255 255;
+
+  /* Results stay separate from the brand. Red now means "this app", so it
+     cannot also mean "you lost" — a losing pick would read as a selected one.
+     Wins keep green; losses go slate, which is quieter and unambiguous. */
+  --win: 42 200 110;
+  --loss: 124 134 150;
+  --push: 88 96 110;
+  --live: 255 149 48;
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: var(--font-sans);

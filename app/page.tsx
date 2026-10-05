@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Wordmark from '@/components/Wordmark';
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/supabase/server';
 
@@ -9,9 +10,7 @@ export default async function LandingPage() {
   return (
     <main className="mx-auto min-h-dvh max-w-md px-5 pb-16 safe-top">
       <header className="flex items-center justify-between py-3">
-        <span className="font-display text-lg font-extrabold tracking-tight">
-          Sunday<span className="text-brand">Showdown</span>
-        </span>
+        <Wordmark />
         <Link href="/login" className="text-sm font-semibold text-muted hover:text-ink">
           Sign in
         </Link>
@@ -44,12 +43,12 @@ export default async function LandingPage() {
           body="Just pick the winner. Safe, and priced like it."
         />
         <Rule
-          points="+5"
+          points="+3"
           title="Spread"
-          body="Take the points or give them. Worth five times as much."
+          body="Take the points or give them. Three times a moneyline."
         />
         <Rule
-          points="+5"
+          points="+3"
           title="Over / Under"
           body="Call the combined score. Same reward, different read."
         />

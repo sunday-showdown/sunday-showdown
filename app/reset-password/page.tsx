@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Wordmark from '@/components/Wordmark';
 import { createClient } from '@/lib/supabase/client';
 
 export default function ResetPasswordPage() {
@@ -27,7 +28,7 @@ export default function ResetPasswordPage() {
     <main className="mx-auto min-h-dvh max-w-md px-5 safe-top">
       <header className="py-3">
         <Link href="/" className="font-display text-lg font-extrabold tracking-tight">
-          Sunday<span className="text-brand">Showdown</span>
+          <Wordmark />
         </Link>
       </header>
 

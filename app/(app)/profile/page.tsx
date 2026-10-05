@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues } from '@/lib/week';
 import { formatRecord } from '@/lib/format';
+import { MARKET_POINTS } from '@/lib/types';
 import SignOutButton from '@/components/SignOutButton';
 
 export const metadata = { title: 'Profile' };
@@ -77,19 +78,19 @@ export default async function ProfilePage() {
         <div className="space-y-2 px-4">
           <MarketRow
             label="Moneyline"
-            points={1}
+            points={MARKET_POINTS.moneyline}
             wins={profile?.career_ml_wins ?? 0}
             losses={profile?.career_ml_losses ?? 0}
           />
           <MarketRow
             label="Spread"
-            points={5}
+            points={MARKET_POINTS.spread}
             wins={profile?.career_spread_wins ?? 0}
             losses={profile?.career_spread_losses ?? 0}
           />
           <MarketRow
             label="Over / Under"
-            points={5}
+            points={MARKET_POINTS.total}
             wins={profile?.career_total_wins ?? 0}
             losses={profile?.career_total_losses ?? 0}
           />

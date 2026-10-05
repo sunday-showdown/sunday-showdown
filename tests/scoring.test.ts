@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { gradePick, summarizeWeek, rankWeek } from '../lib/scoring';
-import { MARKET_POINTS } from '../lib/types';
+import { MARKET_POINTS, TD_TIERS, tdTierFor, tdPointsFor } from '../lib/types';
 
 const final = (homeScore: number, awayScore: number) => ({
   status: 'final',
@@ -9,10 +9,10 @@ const final = (homeScore: number, awayScore: number) => ({
 });
 
 describe('point values', () => {
-  it('pays moneyline 1 and the harder markets 5', () => {
+  it('pays moneyline 1 and the line markets 3', () => {
     // These are the competition's defining numbers; a silent change here would
     // rescore every week in the league's history.
-    expect(MARKET_POINTS).toEqual({ moneyline: 1, spread: 5, total: 5 });
+    expect(MARKET_POINTS).toEqual({ moneyline: 1, spread: 3, total: 3 });
   });
 });
 
@@ -45,9 +45,9 @@ describe('gradePick — spread', () => {
     contestLine,
   });
 
-  it('pays 5 when a favourite covers', () => {
+  it('pays 3 when a favourite covers', () => {
     // Home -9.5, home wins by 10.
-    expect(gradePick(spread('home', -9.5), final(30, 20))).toEqual({ result: 'win', points: 5 });
+    expect(gradePick(spread('home', -9.5), final(30, 20))).toEqual({ result: 'win', points: 3 });
   });
 
   it('fails a favourite that wins without covering', () => {
@@ -57,11 +57,11 @@ describe('gradePick — spread', () => {
 
   it('pays an underdog that loses by less than the spread', () => {
     // Away +9.5, away loses by 7.
-    expect(gradePick(spread('away', 9.5), final(27, 20))).toEqual({ result: 'win', points: 5 });
+    expect(gradePick(spread('away', 9.5), final(27, 20))).toEqual({ result: 'win', points: 3 });
   });
 
   it('pays an underdog that wins outright', () => {
-    expect(gradePick(spread('away', 3), final(17, 24))).toEqual({ result: 'win', points: 5 });
+    expect(gradePick(spread('away', 3), final(17, 24))).toEqual({ result: 'win', points: 3 });
   });
 
   it('pushes when the margin lands exactly on a whole-number line', () => {
@@ -78,14 +78,14 @@ describe('gradePick — spread', () => {
   });
 
   it('handles a pick-em spread of zero', () => {
-    expect(gradePick(spread('home', 0), final(24, 17))).toEqual({ result: 'win', points: 5 });
+    expect(gradePick(spread('home', 0), final(24, 17))).toEqual({ result: 'win', points: 3 });
     expect(gradePick(spread('home', 0), final(20, 20))).toEqual({ result: 'push', points: 0 });
   });
 
   it('grades against the stored line, not the closing one', () => {
     // Taken at -3, the book closed at -9.5, home won by 7. The player who took
     // -3 covered and must be paid, whatever the line moved to afterwards.
-    expect(gradePick(spread('home', -3), final(27, 20))).toEqual({ result: 'win', points: 5 });
+    expect(gradePick(spread('home', -3), final(27, 20))).toEqual({ result: 'win', points: 3 });
   });
 
   it('stays pending when no line was stored', () => {
@@ -104,11 +104,11 @@ describe('gradePick — total', () => {
   });
 
   it('pays the over when the combined score clears the line', () => {
-    expect(gradePick(total('over', 47.5), final(30, 24))).toEqual({ result: 'win', points: 5 });
+    expect(gradePick(total('over', 47.5), final(30, 24))).toEqual({ result: 'win', points: 3 });
   });
 
   it('pays the under when it stays below', () => {
-    expect(gradePick(total('under', 47.5), final(20, 17))).toEqual({ result: 'win', points: 5 });
+    expect(gradePick(total('under', 47.5), final(20, 17))).toEqual({ result: 'win', points: 3 });
   });
 
   it('fails the over when the game stays low', () => {
@@ -121,7 +121,7 @@ describe('gradePick — total', () => {
   });
 
   it('counts a shutout correctly', () => {
-    expect(gradePick(total('under', 10.5), final(7, 0))).toEqual({ result: 'win', points: 5 });
+    expect(gradePick(total('under', 10.5), final(7, 0))).toEqual({ result: 'win', points: 3 });
   });
 });
 
@@ -192,15 +192,15 @@ describe('summarizeWeek', () => {
   it('totals points and counts each market separately', () => {
     const totals = summarizeWeek([
       { marketType: 'moneyline', result: 'win', points: 1 },
-      { marketType: 'spread', result: 'win', points: 5 },
-      { marketType: 'total', result: 'win', points: 5 },
+      { marketType: 'spread', result: 'win', points: 3 },
+      { marketType: 'total', result: 'win', points: 3 },
       { marketType: 'spread', result: 'loss', points: 0 },
       { marketType: 'total', result: 'push', points: 0 },
       { marketType: 'moneyline', result: 'pending', points: 0 },
     ]);
 
     expect(totals).toEqual({
-      pickemPoints: 11,
+      pickemPoints: 7,
       correctMl: 1,
       correctSpread: 1,
       correctTotals: 1,
@@ -287,5 +287,43 @@ describe('rankWeek', () => {
 
   it('handles an empty league', () => {
     expect(rankWeek([])).toEqual([]);
+  });
+});
+
+describe('TD Scorer tiers', () => {
+  it('buckets by how often a player actually scores', () => {
+    // 6 TDs in 8 games = 0.75 → scores most weeks → cheapest.
+    expect(tdTierFor(6, 8)).toBe('lock');
+    // 3 in 8 = 0.375 → middle.
+    expect(tdTierFor(3, 8)).toBe('solid');
+    // 1 in 8 = 0.125 → rare → pays most.
+    expect(tdTierFor(1, 8)).toBe('longshot');
+  });
+
+  it('pays the inverse of reliability', () => {
+    expect(tdPointsFor(6, 8)).toBe(2);
+    expect(tdPointsFor(3, 8)).toBe(4);
+    expect(tdPointsFor(1, 8)).toBe(8);
+  });
+
+  it('puts a player with too few games in the middle, not the long shots', () => {
+    // One quiet appearance should not brand someone a long shot.
+    expect(tdTierFor(0, 1)).toBe('solid');
+    expect(tdTierFor(0, 2)).toBe('solid');
+    expect(tdTierFor(0, 0)).toBe('solid');
+  });
+
+  it('applies the thresholds inclusively at the boundaries', () => {
+    expect(tdTierFor(2, 4)).toBe('lock');     // exactly 0.50
+    expect(tdTierFor(1, 4)).toBe('solid');    // exactly 0.25
+    expect(tdTierFor(3, 13)).toBe('longshot'); // just under 0.25
+  });
+
+  it('never exceeds a full Pick’em card', () => {
+    // The old formula topped out at 30, so one TD pick could outweigh the whole
+    // week. The most expensive tier is now 8.
+    const mostExpensive = Math.max(...Object.values(TD_TIERS).map((t) => t.points));
+    expect(mostExpensive).toBe(8);
+    expect(mostExpensive).toBeLessThan(5 * MARKET_POINTS.spread);
   });
 });
