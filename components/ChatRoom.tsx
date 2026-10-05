@@ -5,7 +5,7 @@ import MessageBubble from './MessageBubble';
 import Composer from './Composer';
 import { createClient } from '@/lib/supabase/client';
 import { formatDayDivider, isDifferentDay } from '@/lib/format';
-import { MESSAGE_PAGE, type ChatMessage } from '@/lib/chat';
+import { MESSAGE_PAGE, excerpt, type ChatMessage } from '@/lib/chat';
 
 /** Consecutive messages from one person inside this window are grouped. */
 const GROUP_WINDOW_MS = 5 * 60_000;
@@ -279,9 +279,11 @@ export default function ChatRoom({
                       setReplyTo({
                         id: message.id,
                         author: message.author?.username ?? null,
-                        excerpt:
-                          message.body?.slice(0, 70) ??
-                          (message.kind === 'image' ? '📷 Image' : '🎟️ Bet slip'),
+                        // The same helper the server uses, so a reply chip
+                        // describes a message the same way a channel preview
+                        // does — and so a new message kind is described in one
+                        // place rather than two.
+                        excerpt: excerpt(message),
                       })
                     }
                     onDelete={() => void remove(message.id)}

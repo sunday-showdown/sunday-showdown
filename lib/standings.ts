@@ -12,6 +12,12 @@ export interface StandingRow {
   correctSpread: number;
   correctTotals: number;
   rank: number;
+  /**
+   * Places gained since before the most recent graded week. Positive is a
+   * climb. Null in the first week of a season, when there is nothing to have
+   * moved from.
+   */
+  movement: number | null;
 }
 
 interface ResultRow {
@@ -45,7 +51,78 @@ export async function loadSeasonStandings(
   if (error) throw new Error(`failed to load standings: ${error.message}`);
   if (!results || results.length === 0) return [];
 
-  const byUser = new Map<string, Omit<StandingRow, 'username' | 'rank'>>();
+  const byUser = tally(results);
+
+  const { data: profiles, error: profileError } = await db
+    .from('profiles')
+    .select('user_id, username')
+    .in('user_id', [...byUser.keys()]);
+
+  if (profileError) throw new Error(`failed to load names: ${profileError.message}`);
+  const nameById = new Map((profiles ?? []).map((p) => [p.user_id as string, p.username as string]));
+
+  // Where everyone stood before the latest graded week, so the table can show
+  // who is climbing. Computed from the same rows rather than stored: a
+  // remembered rank would go stale the moment a score was corrected and
+  // grading re-ran, and grading is deliberately idempotent.
+  const latestWeek = results.reduce((high, row) => Math.max(high, row.week), 0);
+  const previousRanks = rankOf(results.filter((row) => row.week < latestWeek));
+
+  const rows: StandingRow[] = rank(byUser).map((entry) => {
+    const before = previousRanks.get(entry.userId);
+    return {
+      ...entry,
+      username: nameById.get(entry.userId) ?? 'Someone',
+      movement: before === undefined ? null : before - entry.rank,
+    };
+  });
+
+  return rows;
+}
+
+type Tally = Omit<StandingRow, 'username' | 'rank' | 'movement'>;
+
+/**
+ * Order and place a set of tallies.
+ *
+ * Ties share a rank and consume the places behind them, matching how a week is
+ * ranked. Pulled out of loadSeasonStandings because the same ordering has to
+ * be applied twice — once to the season, once to the season minus its last
+ * week — and two copies would be two chances to rank them differently.
+ */
+function rank(byUser: Map<string, Tally>): (Tally & { rank: number })[] {
+  const sorted = [...byUser.values()].sort(
+    (a, b) =>
+      b.totalPoints - a.totalPoints ||
+      b.weeklyWins - a.weeklyWins ||
+      a.userId.localeCompare(b.userId),
+  );
+
+  const placed: (Tally & { rank: number })[] = [];
+  let place = 0;
+  let previousKey: string | null = null;
+
+  sorted.forEach((entry, index) => {
+    const key = `${entry.totalPoints}:${entry.weeklyWins}`;
+    if (key !== previousKey) {
+      place = index + 1;
+      previousKey = key;
+    }
+    placed.push({ ...entry, rank: place });
+  });
+
+  return placed;
+}
+
+/** Rank by user id, for a subset of the season's results. */
+function rankOf(results: readonly ResultRow[]): Map<string, number> {
+  if (results.length === 0) return new Map();
+  return new Map(rank(tally(results)).map((entry) => [entry.userId, entry.rank]));
+}
+
+/** Fold weekly results into one running total per person. */
+function tally(results: readonly ResultRow[]): Map<string, Tally> {
+  const byUser = new Map<string, Tally>();
 
   for (const row of results) {
     const entry =
@@ -70,39 +147,5 @@ export async function loadSeasonStandings(
     byUser.set(row.user_id, entry);
   }
 
-  const { data: profiles, error: profileError } = await db
-    .from('profiles')
-    .select('user_id, username')
-    .in('user_id', [...byUser.keys()]);
-
-  if (profileError) throw new Error(`failed to load names: ${profileError.message}`);
-  const nameById = new Map((profiles ?? []).map((p) => [p.user_id as string, p.username as string]));
-
-  const sorted = [...byUser.values()].sort(
-    (a, b) =>
-      b.totalPoints - a.totalPoints ||
-      b.weeklyWins - a.weeklyWins ||
-      a.userId.localeCompare(b.userId),
-  );
-
-  // Ties share a rank and consume the places behind them, matching how a week
-  // is ranked.
-  const rows: StandingRow[] = [];
-  let rank = 0;
-  let previousKey: string | null = null;
-
-  sorted.forEach((entry, index) => {
-    const key = `${entry.totalPoints}:${entry.weeklyWins}`;
-    if (key !== previousKey) {
-      rank = index + 1;
-      previousKey = key;
-    }
-    rows.push({
-      ...entry,
-      username: nameById.get(entry.userId) ?? 'Someone',
-      rank,
-    });
-  });
-
-  return rows;
+  return byUser;
 }

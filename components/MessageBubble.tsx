@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Avatar from './Avatar';
 import BetSlipCard from './BetSlipCard';
+import PickCardMessage from './PickCardMessage';
 import { formatMessageTime } from '@/lib/format';
 import { QUICK_REACTIONS, type ChatMessage } from '@/lib/chat';
 
@@ -124,6 +125,12 @@ export default function MessageBubble({
           {message.bet && (
             <div className="mt-1.5 max-w-[300px]">
               <BetSlipCard bet={message.bet} isMine={isMine} onChanged={onChanged} />
+            </div>
+          )}
+
+          {message.card && (
+            <div className="mt-1.5 max-w-[300px]">
+              <PickCardMessage card={message.card} />
             </div>
           )}
 

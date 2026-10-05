@@ -12,12 +12,14 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BetLeg } from './bets';
+import { formatSpread } from './format';
+import { pointsForOdds } from './odds';
 
 export const MESSAGE_PAGE = 50;
 export const MAX_BODY = 2000;
 
 export type ChannelKind = 'league' | 'mode' | 'dm';
-export type MessageKind = 'text' | 'image' | 'bet_slip' | 'system';
+export type MessageKind = 'text' | 'image' | 'bet_slip' | 'pick_card' | 'system';
 export type Stance = 'tail' | 'fade';
 
 export interface ChannelSummary {
@@ -55,6 +57,26 @@ export interface SharedBetView {
   ownerId: string;
 }
 
+export interface CardPick {
+  label: string;
+  matchup: string;
+  points: number;
+  result: string;
+  /** Carried for ordering, not for display. */
+  kickoff: string;
+}
+
+export interface SharedCardView {
+  season: number;
+  week: number;
+  picks: CardPick[];
+  /** Points already banked from graded picks. */
+  earned: number;
+  /** Everything still live, if it all lands. */
+  atStake: number;
+  graded: number;
+}
+
 export interface ChatMessage {
   id: string;
   kind: MessageKind;
@@ -70,6 +92,7 @@ export interface ChatMessage {
     height: number | null;
   } | null;
   bet: SharedBetView | null;
+  card: SharedCardView | null;
   replyTo: { id: string; author: string | null; excerpt: string } | null;
   reactions: Record<string, number>;
   myReactions: string[];
@@ -105,6 +128,7 @@ export function excerpt(message: {
   if (message.deleted) return 'Message deleted';
   if (message.kind === 'image') return '📷 Image';
   if (message.kind === 'bet_slip') return '🎟️ Bet slip';
+  if (message.kind === 'pick_card') return '🗒️ Their card';
   const text = (message.body ?? '').replace(/\s+/g, ' ').trim();
   if (!text) return '';
   return text.length > 70 ? `${text.slice(0, 69)}…` : text;
@@ -272,7 +296,7 @@ export async function loadMessages(
   let query = db
     .from('messages')
     .select(
-      'id, kind, body, user_id, attachment_url, attachment_type, attachment_width, attachment_height, bet_id, reply_to_id, edited_at, deleted_at, created_at',
+      'id, kind, body, user_id, attachment_url, attachment_type, attachment_width, attachment_height, bet_id, card_challenge_id, reply_to_id, edited_at, deleted_at, created_at',
     )
     .eq('channel_id', channelId)
     .order('created_at', { ascending: false })
@@ -289,6 +313,9 @@ export async function loadMessages(
   const ids = messages.map((m) => m.id as string);
   const authorIds = [...new Set(messages.map((m) => m.user_id).filter((id): id is string => typeof id === 'string'))];
   const betIds = [...new Set(messages.map((m) => m.bet_id).filter((id): id is string => typeof id === 'string'))];
+  const cardKeys = messages
+    .filter((m) => typeof m.card_challenge_id === 'string' && typeof m.user_id === 'string')
+    .map((m) => ({ challengeId: m.card_challenge_id as string, userId: m.user_id as string }));
   const replyIds = [...new Set(messages.map((m) => m.reply_to_id).filter((id): id is string => typeof id === 'string'))];
 
   const [{ data: reactions }, { data: profiles }, { data: bets }, { data: replies }] =
@@ -311,6 +338,8 @@ export async function loadMessages(
   const { data: tails } = betIds.length
     ? await db.from('bet_tails').select('bet_id, user_id, stance').in('bet_id', betIds)
     : { data: [] };
+
+  const cards = await loadCards(db, cardKeys);
 
   const authorOf = new Map<string, MessageAuthor>(
     ((profiles ?? []) as { user_id: string; username: string; avatar_url: string | null }[]).map(
@@ -397,12 +426,123 @@ export async function loadMessages(
               }
             : null,
         bet: !deleted && betId ? (betOf.get(betId) ?? null) : null,
+        card:
+          !deleted && row.card_challenge_id && authorId
+            ? (cards.get(`${row.card_challenge_id as string}:${authorId}`) ?? null)
+            : null,
         replyTo: replyId ? (replyOf.get(replyId) ?? null) : null,
         reactions: tallies.get(id) ?? {},
         myReactions: mine.get(id) ?? [],
       };
     })
     .reverse();
+}
+
+/**
+ * The cards behind any shared-card messages on the page.
+ *
+ * Three queries for the whole page, whatever it holds. The picks are read live
+ * rather than from a copy stored on the message, which is what lets a card
+ * posted on Thursday fill in with results through Sunday — see the note at the
+ * top of migration 0016.
+ *
+ * Keyed by challenge AND author, because the same contest can be shared by
+ * several people in the same channel and each of them posted a different card.
+ */
+async function loadCards(
+  db: SupabaseClient,
+  keys: readonly { challengeId: string; userId: string }[],
+): Promise<Map<string, SharedCardView>> {
+  const cards = new Map<string, SharedCardView>();
+  if (keys.length === 0) return cards;
+
+  const challengeIds = [...new Set(keys.map((k) => k.challengeId))];
+  const userIds = [...new Set(keys.map((k) => k.userId))];
+
+  const [{ data: challenges }, { data: picks }] = await Promise.all([
+    db.from('pickem_challenges').select('id, season, week').in('id', challengeIds),
+    db
+      .from('picks')
+      .select('challenge_id, user_id, game_id, market_type, selection, contest_line, contest_odds, result, points')
+      .in('challenge_id', challengeIds)
+      .in('user_id', userIds),
+  ]);
+
+  const pickRows = (picks ?? []) as Record<string, unknown>[];
+  if (pickRows.length === 0) return cards;
+
+  const gameIds = [...new Set(pickRows.map((p) => p.game_id as string))];
+  const { data: games } = await db
+    .from('nfl_games')
+    .select('id, home_abbr, away_abbr, start_time')
+    .in('id', gameIds);
+
+  const gameOf = new Map(
+    ((games ?? []) as { id: string; home_abbr: string; away_abbr: string; start_time: string }[]).map(
+      (g) => [g.id, g],
+    ),
+  );
+  const contestOf = new Map(
+    ((challenges ?? []) as { id: string; season: number; week: number }[]).map((c) => [c.id, c]),
+  );
+
+  for (const row of pickRows) {
+    const challengeId = row.challenge_id as string;
+    const userId = row.user_id as string;
+    const contest = contestOf.get(challengeId);
+    const game = gameOf.get(row.game_id as string);
+    if (!contest || !game) continue;
+
+    const key = `${challengeId}:${userId}`;
+    const card =
+      cards.get(key) ??
+      { season: contest.season, week: contest.week, picks: [], earned: 0, atStake: 0, graded: 0 };
+
+    const result = (row.result as string) ?? 'pending';
+    const odds = row.contest_odds === null ? null : Number(row.contest_odds);
+    const line = row.contest_line === null ? null : Number(row.contest_line);
+
+    card.picks.push({
+      label: describeCardPick(row.market_type as string, row.selection as string, game, line),
+      matchup: `${game.away_abbr} @ ${game.home_abbr}`,
+      points: pointsForOdds(odds),
+      result,
+      kickoff: game.start_time,
+    });
+
+    if (result === 'pending') {
+      card.atStake += pointsForOdds(odds);
+    } else {
+      card.graded += 1;
+      card.earned += Number(row.points) || 0;
+    }
+
+    cards.set(key, card);
+  }
+
+  for (const card of cards.values()) {
+    // Kickoff order, so a shared card reads like the slate rather than like
+    // whatever order the rows happened to come back in.
+    card.picks.sort((a, b) => a.kickoff.localeCompare(b.kickoff));
+    card.earned = Math.round(card.earned);
+    card.atStake = Math.round(card.atStake);
+  }
+
+  return cards;
+}
+
+function describeCardPick(
+  market: string,
+  selection: string,
+  game: { home_abbr: string; away_abbr: string },
+  line: number | null,
+): string {
+  if (market === 'total') {
+    return `${selection === 'over' ? 'Over' : 'Under'} ${line ?? ''}`.trim();
+  }
+  const abbr = selection === 'home' ? game.home_abbr : game.away_abbr;
+  if (market === 'moneyline') return `${abbr} ML`;
+  return `${abbr} ${formatSpread(line)}`;
 }
 
 /**

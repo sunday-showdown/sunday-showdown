@@ -39,6 +39,7 @@ describe('excerpt', () => {
   it('describes a non-text message by its kind', () => {
     expect(excerpt({ kind: 'image', body: null })).toBe('📷 Image');
     expect(excerpt({ kind: 'bet_slip', body: null })).toBe('🎟️ Bet slip');
+    expect(excerpt({ kind: 'pick_card', body: null })).toBe('🗒️ Their card');
   });
 
   it('says so when a message was deleted, whatever it held', () => {

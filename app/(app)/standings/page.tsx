@@ -91,12 +91,15 @@ export default async function StandingsPage({
                         isMe ? 'bg-brand/[0.07]' : ''
                       }`}
                     >
-                      <span
-                        className={`display w-7 shrink-0 text-center text-[17px] leading-none tabnum ${
-                          row.rank === 1 ? 'text-gold' : 'text-muted'
-                        }`}
-                      >
-                        {row.rank}
+                      <span className="flex w-9 shrink-0 flex-col items-center">
+                        <span
+                          className={`display text-[17px] leading-none tabnum ${
+                            row.rank === 1 ? 'text-gold' : 'text-muted'
+                          }`}
+                        >
+                          {row.rank}
+                        </span>
+                        <Movement places={row.movement} />
                       </span>
 
                       <div className="min-w-0 flex-1">
@@ -136,5 +139,31 @@ export default async function StandingsPage({
         </>
       )}
     </main>
+  );
+}
+
+/**
+ * Places gained or lost since the week before last week's grading.
+ *
+ * The number people actually want from a league table is not where they are,
+ * it is whether they are climbing — so it sits under the rank rather than in a
+ * column somebody has to go looking for. Nothing is drawn when a person has not
+ * moved, or in the opening week when there is nowhere to have moved from: an
+ * arrow on every row makes none of them mean anything.
+ */
+function Movement({ places }: { places: number | null }) {
+  if (places === null || places === 0) return null;
+
+  const up = places > 0;
+  return (
+    <span
+      className={`mt-0.5 flex items-center gap-[1px] text-[9px] font-bold leading-none tabnum ${
+        up ? 'text-win' : 'text-loss'
+      }`}
+      aria-label={`${up ? 'Up' : 'Down'} ${Math.abs(places)} place${Math.abs(places) === 1 ? '' : 's'}`}
+    >
+      <span aria-hidden="true">{up ? '▲' : '▼'}</span>
+      {Math.abs(places)}
+    </span>
   );
 }

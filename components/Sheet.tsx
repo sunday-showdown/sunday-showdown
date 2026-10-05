@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * A bottom sheet.
@@ -17,6 +18,13 @@ import { useEffect, useRef, type ReactNode } from 'react';
  *
  * Its own bottom padding respects the home indicator, so the last control is
  * not sitting under the gesture bar.
+ *
+ * And it renders through a portal to <body>, which is not a detail. globals.css
+ * gives `main` a z-index so the background wash sits behind the content, and
+ * that makes `main` a stacking context — so a sheet inside it could not get
+ * above the bottom nav however large its own z-index was. It opened under the
+ * tab bar on every screen except a chat room, where the bar is hidden and the
+ * bug was invisible.
  */
 export default function Sheet({
   open,
@@ -32,6 +40,11 @@ export default function Sheet({
   footer?: ReactNode;
 }) {
   const panel = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // document.body does not exist during the server render, so the portal waits
+  // for the client. The sheet is never open on first paint anyway.
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!open) return;
@@ -54,9 +67,9 @@ export default function Sheet({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-end justify-center">
       <button
         type="button"
@@ -101,6 +114,7 @@ export default function Sheet({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues, loadWeek } from '@/lib/week';
 import { loadPot } from '@/lib/pot';
+import { loadChannels } from '@/lib/chat';
 import PickSheet from '@/components/PickSheet';
 import WeekSelector from '@/components/WeekSelector';
 import EmptyState from '@/components/EmptyState';
@@ -9,6 +10,7 @@ import LeagueSwitcher from '@/components/LeagueSwitcher';
 import AppBar from '@/components/AppBar';
 import ModePot from '@/components/ModePot';
 import ModeChatButton from '@/components/ModeChatButton';
+import ShareCardButton from '@/components/ShareCardButton';
 
 export const metadata = { title: 'Picks' };
 
@@ -47,9 +49,10 @@ export default async function PicksPage({
       ? requested
       : league.current_week;
 
-  const [data, pot] = await Promise.all([
+  const [data, pot, channels] = await Promise.all([
     loadWeek(supabase, user.id, league, week),
     loadPot(supabase, user.id, league, 'pickem'),
+    loadChannels(supabase, user.id, league.id),
   ]);
 
   return (
@@ -80,6 +83,13 @@ export default async function PicksPage({
       {/* The pot and the room belong to this mode, beneath the game rather than
           in front of it. */}
       <div className="mt-5 space-y-2">
+        {data.challenge && (
+          <ShareCardButton
+            challengeId={data.challenge.id}
+            channels={channels}
+            pickCount={data.myPicks.length}
+          />
+        )}
         <ModePot pot={pot} leagueId={league.id} season={league.season} />
         <ModeChatButton leagueId={league.id} mode="pickem" label="Pick'em" />
       </div>

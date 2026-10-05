@@ -60,6 +60,7 @@ export async function POST(request: Request) {
     attachmentWidth,
     attachmentHeight,
     betId,
+    challengeId,
     replyToId,
   } = (payload ?? {}) as Record<string, unknown>;
 
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
   }
 
   const messageKind =
-    kind === 'image' || kind === 'bet_slip' ? kind : 'text';
+    kind === 'image' || kind === 'bet_slip' || kind === 'pick_card' ? kind : 'text';
 
   const text = typeof body === 'string' ? body.trim() : '';
   if (text.length > MAX_BODY) {
@@ -85,6 +86,9 @@ export async function POST(request: Request) {
   }
   if (messageKind === 'bet_slip' && typeof betId !== 'string') {
     return Response.json({ error: 'That slip is missing.' }, { status: 400 });
+  }
+  if (messageKind === 'pick_card' && typeof challengeId !== 'string') {
+    return Response.json({ error: 'There is no card to share.' }, { status: 400 });
   }
 
   const supabase = await createServerSupabase();
@@ -121,12 +125,21 @@ export async function POST(request: Request) {
           ? (attachmentHeight as number)
           : null,
       bet_id: messageKind === 'bet_slip' ? (betId as string) : null,
+      // Only the contest id is stored. The card is read from the sender's own
+      // picks when the message renders, so it fills in with results as the week
+      // grades — and so nobody can post a card that is not theirs.
+      card_challenge_id: messageKind === 'pick_card' ? (challengeId as string) : null,
       reply_to_id: typeof replyToId === 'string' ? replyToId : null,
     })
     .select('id, created_at')
     .single();
 
   if (error || !inserted) {
+    // A unique violation here is the one case that is not a permission problem:
+    // the same card has already been shared in this channel.
+    if (error?.code === '23505') {
+      return Response.json({ error: 'You already shared that card here.' }, { status: 409 });
+    }
     // RLS rejects a message in a channel this person cannot read.
     return Response.json({ error: 'Could not send that.' }, { status: 403 });
   }
@@ -214,7 +227,7 @@ async function notifyAbout(
     messageId: string;
     senderId: string;
     text: string;
-    kind: 'text' | 'image' | 'bet_slip';
+    kind: 'text' | 'image' | 'bet_slip' | 'pick_card';
   },
 ): Promise<void> {
   try {
