@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildLockReminders, deliver } from './notifications';
+import { pushToUsers } from './push';
 
 /** Hours before lock at which a reminder goes out. */
 export const REMINDER_WINDOWS = [24, 2] as const;
@@ -104,6 +105,22 @@ export async function sendLockReminders(
 
     report.notified += result.created;
     report.warnings.push(...result.warnings);
+
+    // Only push to people who actually got a new in-app notification, so a
+    // repeated cron inside the same window does not buzz a phone twice.
+    if (result.created > 0) {
+      const pushed = await pushToUsers(
+        db,
+        incomplete.map((entry) => entry.userId),
+        {
+          title: `${mark}h until lock`,
+          body: `Week ${contest.week}: your card is not finished.`,
+          url: '/picks',
+          tag: `lock-${contest.season}-${contest.week}`,
+        },
+      );
+      report.warnings.push(...pushed.warnings);
+    }
   }
 
   return report;
