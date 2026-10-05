@@ -2,10 +2,11 @@
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import AppBar from '@/components/AppBar';
 
 export default function JoinLeaguePage() {
   return (
-    <Suspense fallback={<main className="px-5 pt-6" />}>
+    <Suspense fallback={<main />}>
       <JoinForm />
     </Suspense>
   );
@@ -42,7 +43,9 @@ function JoinForm() {
   };
 
   return (
-    <main className="px-5 pt-6">
+    <main>
+      <AppBar title="Join a league" back="/leagues" compact />
+      <div className="px-5 pt-2">
       <h1 className="display text-[30px] leading-none">Join a league</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
         Ask whoever set it up for the six-character code.
@@ -83,6 +86,7 @@ function JoinForm() {
           {busy ? 'Joining…' : 'Join league'}
         </button>
       </form>
+      </div>
     </main>
   );
 }

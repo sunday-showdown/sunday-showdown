@@ -153,8 +153,13 @@ export default function PickSheet({
 
   return (
     <>
-      <div style={{ top: 'env(safe-area-inset-top)' }}
-        className="sticky z-30 border-b border-line/70 bg-bg/90 px-4 py-2.5 backdrop-blur-xl">
+      {/* Sticks under the app bar, not under the notch: AppBar owns the inset
+          now and publishes its own height as --appbar-h. z-20 so the bar above
+          always wins, since both are sticky and this one comes later. */}
+      <div
+        style={{ top: 'var(--appbar-h, 0px)' }}
+        className="sticky z-20 border-b border-line/70 bg-bg/90 px-4 py-2.5 backdrop-blur-xl"
+      >
         <div className="grid grid-cols-3 gap-2">
           <Stat
             label={locked ? 'Locked' : 'Locks in'}

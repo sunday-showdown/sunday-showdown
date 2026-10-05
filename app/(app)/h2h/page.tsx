@@ -2,8 +2,13 @@ import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues } from '@/lib/week';
 import { canonicalPair } from '@/lib/h2h';
+import { loadPot } from '@/lib/pot';
 import H2HPanel, { type Challenge, type LeagueMate } from '@/components/H2HPanel';
 import EmptyState from '@/components/EmptyState';
+import AppBar from '@/components/AppBar';
+import LeagueSwitcher from '@/components/LeagueSwitcher';
+import ModePot from '@/components/ModePot';
+import ModeChatButton from '@/components/ModeChatButton';
 
 export const metadata = { title: 'Head to head' };
 export const dynamic = 'force-dynamic';
@@ -20,11 +25,14 @@ export default async function H2HPage({
   const leagues = await loadMyLeagues(supabase, user.id);
   if (leagues.length === 0) {
     return (
-      <EmptyState
-        title="No league yet"
-        body="Head to head needs someone to play against."
-        action={<Link href="/leagues/new" className="btn-primary h-11 px-5 text-sm">Create a league</Link>}
-      />
+      <main>
+        <AppBar title="Head to head" back="/home" />
+        <EmptyState
+          title="No league yet"
+          body="Head to head needs someone to play against."
+          action={<Link href="/leagues/new" className="btn-primary h-11 px-5 text-sm">Create a league</Link>}
+        />
+      </main>
     );
   }
 
@@ -92,14 +100,16 @@ export default async function H2HPage({
     record: recordFor(id),
   }));
 
+  const pot = await loadPot(supabase, user.id, league, 'h2h');
+
   return (
     <main className="pb-4">
-      <header className="px-4 pb-3 pt-3">
-        <h1 className="display text-[28px] leading-none">Head to head</h1>
-        <p className="text-xs text-muted">
-          {league.name} · highest card wins the week
-        </p>
-      </header>
+      <AppBar
+        title="Head to head"
+        subtitle={`${league.name} · highest card wins the week`}
+        back="/home"
+        trailing={<LeagueSwitcher leagues={leagues} currentId={league.id} />}
+      />
 
       <H2HPanel
         leagueId={league.id}
@@ -108,6 +118,11 @@ export default async function H2HPage({
         challenges={challenges}
         mates={mates}
       />
+
+      <div className="mt-5 space-y-2">
+        <ModePot pot={pot} leagueId={league.id} season={league.season} />
+        <ModeChatButton leagueId={league.id} mode="h2h" label="Head to head" />
+      </div>
     </main>
   );
 }

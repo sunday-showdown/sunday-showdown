@@ -68,3 +68,62 @@ export const RESULT_LABEL: Record<string, string> = {
   push: 'Push',
   pending: 'Pending',
 };
+
+/** Clock time for a chat message: "9:42 PM", in the reader's own zone. */
+export function formatMessageTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date);
+}
+
+/**
+ * The divider between days in a conversation.
+ *
+ * "Today" and "Yesterday" rather than a date, because that is how people
+ * actually refer to the last two days of a thread.
+ */
+export function formatDayDivider(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const startOf = (value: Date) =>
+    new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+
+  const days = Math.round((startOf(new Date()) - startOf(date)) / 86_400_000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) {
+    return new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date);
+  }
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+  }).format(date);
+}
+
+/** True when two timestamps fall on different calendar days. */
+export function isDifferentDay(a: string, b: string): boolean {
+  const first = new Date(a);
+  const second = new Date(b);
+  if (Number.isNaN(first.getTime()) || Number.isNaN(second.getTime())) return false;
+  return (
+    first.getFullYear() !== second.getFullYear() ||
+    first.getMonth() !== second.getMonth() ||
+    first.getDate() !== second.getDate()
+  );
+}
+
+/** "now", "4m", "2h", "3d" — for a channel list or an activity row. */
+export function formatRelative(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+
+  const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (seconds < 45) return 'now';
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+  if (seconds < 86_400) return `${Math.round(seconds / 3600)}h`;
+  if (seconds < 604_800) return `${Math.round(seconds / 86_400)}d`;
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(iso));
+}

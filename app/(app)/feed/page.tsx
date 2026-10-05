@@ -1,12 +1,13 @@
 import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues } from '@/lib/week';
-import FeedTabs from '@/components/FeedTabs';
+import { loadChannels } from '@/lib/chat';
+import AppBar from '@/components/AppBar';
+import ChannelList, { type DmCandidate } from '@/components/ChannelList';
 import LeagueSwitcher from '@/components/LeagueSwitcher';
 import EmptyState from '@/components/EmptyState';
-import type { FeedItem } from '@/components/ActivityItem';
 
-export const metadata = { title: 'Feed' };
+export const metadata = { title: 'Chat' };
 export const dynamic = 'force-dynamic';
 
 export default async function FeedPage({
@@ -21,74 +22,80 @@ export default async function FeedPage({
   const leagues = await loadMyLeagues(supabase, user.id);
   if (leagues.length === 0) {
     return (
-      <EmptyState
-        title="No league yet"
-        body="The feed fills up with your league's results, upsets and streaks."
-        action={<Link href="/leagues/new" className="btn-primary px-5 text-sm">Create a league</Link>}
-      />
+      <main>
+        <AppBar title="Chat" />
+        <EmptyState
+          title="No league yet"
+          body="Channels belong to a league. Create one or join with a code and the rooms appear."
+          action={
+            <div className="flex flex-col gap-2">
+              <Link href="/leagues/new" className="btn-primary px-5 text-sm">
+                Create a league
+              </Link>
+              <Link href="/leagues/join" className="btn-ghost px-5 text-sm">
+                Join with a code
+              </Link>
+            </div>
+          }
+        />
+      </main>
     );
   }
 
   const league = leagues.find((l) => l.id === params.league) ?? leagues[0]!;
 
-  const [{ data: activity }, { data: following }] = await Promise.all([
-    supabase
-      .from('league_activity')
-      .select('id, activity_type, message, created_at, week, user_id')
-      .eq('league_id', league.id)
-      .order('created_at', { ascending: false })
-      .limit(60),
+  const [channels, { data: members }, { data: following }] = await Promise.all([
+    loadChannels(supabase, user.id, league.id),
+    supabase.from('league_members').select('user_id').eq('league_id', league.id),
     supabase.from('follows').select('following_id').eq('follower_id', user.id),
   ]);
 
-  const friendIds = new Set((following ?? []).map((f) => f.following_id as string));
-  const ids = (activity ?? []).map((a) => a.id as string);
+  // Anyone you can message: your league, plus anyone you follow who is not in
+  // it. Both are people you already have a relationship with in the app, which
+  // is what keeps this from being a way to message strangers.
+  const memberIds = (members ?? []).map((m) => m.user_id as string).filter((id) => id !== user.id);
+  const followedIds = (following ?? [])
+    .map((f) => f.following_id as string)
+    .filter((id) => id !== user.id);
 
-  // One query for every reaction on the page rather than one per item.
-  const { data: reactionRows } = ids.length
+  const candidateIds = [...new Set([...memberIds, ...followedIds])];
+  const { data: profiles } = candidateIds.length
     ? await supabase
-        .from('activity_reactions')
-        .select('activity_id, user_id, emoji')
-        .in('activity_id', ids)
+        .from('profiles')
+        .select('user_id, username, avatar_url')
+        .in('user_id', candidateIds)
     : { data: [] };
 
-  const counts = new Map<string, Record<string, number>>();
-  const mine = new Map<string, string[]>();
-  for (const row of reactionRows ?? []) {
-    const id = row.activity_id as string;
-    const emoji = row.emoji as string;
-    const tally = counts.get(id) ?? {};
-    tally[emoji] = (tally[emoji] ?? 0) + 1;
-    counts.set(id, tally);
-    if (row.user_id === user.id) mine.set(id, [...(mine.get(id) ?? []), emoji]);
-  }
+  const inLeague = new Set(memberIds);
+  const candidates: DmCandidate[] = (profiles ?? [])
+    .map((profile) => ({
+      userId: profile.user_id as string,
+      username: profile.username as string,
+      avatarUrl: (profile.avatar_url as string) ?? null,
+      reason: inLeague.has(profile.user_id as string) ? 'In your league' : 'You follow them',
+    }))
+    .sort((a, b) => a.username.localeCompare(b.username));
 
-  const toItem = (a: Record<string, unknown>): FeedItem => ({
-    id: a.id as string,
-    activityType: a.activity_type as string,
-    message: a.message as string,
-    createdAt: a.created_at as string,
-    week: (a.week as number) ?? null,
-    reactions: counts.get(a.id as string) ?? {},
-    myReactions: mine.get(a.id as string) ?? [],
-  });
-
-  const all = (activity ?? []).map(toItem);
-  const friendItems = (activity ?? [])
-    .filter((a) => a.user_id !== null && friendIds.has(a.user_id as string))
-    .map(toItem);
+  const unread = channels.reduce((sum, channel) => sum + channel.unread, 0);
 
   return (
-    <main className="pb-6">
-      <header className="flex items-center justify-between gap-3 px-4 pb-3 pt-3">
-        <div className="min-w-0">
-          <h1 className="display text-[28px] leading-none">Feed</h1>
-          <p className="truncate text-[11px] text-muted">{league.name}</p>
-        </div>
-        <LeagueSwitcher leagues={leagues} currentId={league.id} />
-      </header>
+    <main>
+      <AppBar
+        title="Chat"
+        subtitle={
+          unread > 0
+            ? `${league.name} · ${unread} unread`
+            : `${league.name} · talk, pictures, GIFs and slips`
+        }
+        trailing={<LeagueSwitcher leagues={leagues} currentId={league.id} />}
+      />
 
-      <FeedTabs league={all} friends={friendItems} friendCount={friendIds.size} />
+      <ChannelList
+        channels={channels}
+        leagueId={league.id}
+        isCommissioner={league.commissioner_id === user.id}
+        candidates={candidates}
+      />
     </main>
   );
 }

@@ -8,25 +8,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await getSessionUser();
   if (!user) redirect('/login');
 
+  // No top padding and no notch scrim here any more. Both used to live in this
+  // file, and between them they produced the clipped heading: the scrim was a
+  // fixed translucent strip that page content slid under, and the padding left
+  // every title pressed right up against the bottom of the notch. AppBar now
+  // owns the inset as part of a real sticky surface. See components/AppBar.tsx.
   return (
     <>
-      {/* The status bar is translucent and viewport-fit is cover, so the webview
-          extends under the notch. Every screen gets that inset here rather than
-          each page remembering to — forgetting it once cut the heading in half. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-x-0 top-0 z-50 bg-bg/80 backdrop-blur-sm"
-        style={{ height: 'env(safe-area-inset-top)' }}
-      />
-
-      {/* pb-16 clears the fixed bottom nav plus the home indicator. */}
-      <div
-        className="mx-auto max-w-md pb-16"
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
-      >
-        {children}
-      </div>
-
+      {/* pb-24 clears the fixed bottom nav plus the home indicator. */}
+      <div className="mx-auto min-h-dvh max-w-md pb-24">{children}</div>
       <BottomNav />
     </>
   );

@@ -3,6 +3,7 @@ import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues } from '@/lib/week';
 import { formatRecord } from '@/lib/format';
 import SignOutButton from '@/components/SignOutButton';
+import AppBar from '@/components/AppBar';
 import AchievementGrid, { type AchievementTile } from '@/components/AchievementGrid';
 
 export const metadata = { title: 'Profile' };
@@ -62,12 +63,7 @@ export default async function ProfilePage() {
 
   return (
     <main className="pb-4">
-      <header className="px-4 pb-3 pt-3">
-        <h1 className="display text-[28px] leading-none">
-          {profile?.username ?? 'Your profile'}
-        </h1>
-        <p className="text-xs text-muted">{user.email}</p>
-      </header>
+      <AppBar title={profile?.username ?? 'Your profile'} subtitle={user.email} />
 
       <section className="px-4">
         <div className="card grid grid-cols-3 divide-x divide-line">

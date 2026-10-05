@@ -2,6 +2,7 @@ import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import NotificationList, { type Note } from '@/components/NotificationList';
 import EmptyState from '@/components/EmptyState';
 import PushToggle from '@/components/PushToggle';
+import AppBar from '@/components/AppBar';
 
 export const metadata = { title: 'Notifications' };
 export const dynamic = 'force-dynamic';
@@ -28,9 +29,7 @@ export default async function NotificationsPage() {
 
   return (
     <main className="pb-4">
-      <header className="px-4 pb-3 pt-3">
-        <h1 className="display text-[28px] leading-none">Notifications</h1>
-      </header>
+      <AppBar title="Notifications" back="/home" />
 
       <section className="px-4 pb-4">
         <PushToggle publicKey={process.env.VAPID_PUBLIC_KEY ?? null} />

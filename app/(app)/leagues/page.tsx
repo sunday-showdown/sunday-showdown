@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues } from '@/lib/week';
 import EmptyState from '@/components/EmptyState';
+import AppBar from '@/components/AppBar';
 
 export const metadata = { title: 'Leagues' };
 export const dynamic = 'force-dynamic';
@@ -13,9 +14,7 @@ export default async function LeaguesPage() {
 
   return (
     <main className="pb-6">
-      <header className="px-4 pb-3 pt-3">
-        <h1 className="display text-[28px] leading-none">Leagues</h1>
-      </header>
+      <AppBar title="Leagues" subtitle="Members, invite codes and settings" back="/home" />
 
       {leagues.length === 0 ? (
         <EmptyState

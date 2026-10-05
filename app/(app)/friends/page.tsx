@@ -1,5 +1,6 @@
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import FriendsPanel, { type FriendRow } from '@/components/FriendsPanel';
+import AppBar from '@/components/AppBar';
 
 export const metadata = { title: 'Friends' };
 export const dynamic = 'force-dynamic';
@@ -50,12 +51,7 @@ export default async function FriendsPage() {
 
   return (
     <main className="pb-6">
-      <header className="px-4 pb-3 pt-3">
-        <h1 className="display text-[28px] leading-none">Friends</h1>
-        <p className="text-[11px] text-muted">
-          Follow each other and you&apos;re friends
-        </p>
-      </header>
+      <AppBar title="Friends" subtitle="Follow each other and you're friends" back="/home" />
 
       <FriendsPanel friends={friends} />
     </main>

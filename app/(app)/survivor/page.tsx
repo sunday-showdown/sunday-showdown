@@ -2,8 +2,12 @@ import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues } from '@/lib/week';
 import { isAlive } from '@/lib/survivor';
+import { loadPot } from '@/lib/pot';
 import SurvivorBoard, { type SurvivorGameOption } from '@/components/SurvivorBoard';
 import EmptyState from '@/components/EmptyState';
+import AppBar from '@/components/AppBar';
+import ModePot from '@/components/ModePot';
+import ModeChatButton from '@/components/ModeChatButton';
 import type { SurvivorPickResult } from '@/lib/types';
 
 export const metadata = { title: 'Survivor' };
@@ -20,11 +24,14 @@ export default async function SurvivorPage({
   const leagues = await loadMyLeagues(supabase, user.id);
   if (leagues.length === 0) {
     return (
-      <EmptyState
-        title="No league yet"
-        body="Survivor pools live inside a league. Create or join one first."
-        action={<Link href="/leagues/new" className="btn-primary h-11 px-5 text-sm">Create a league</Link>}
-      />
+      <main>
+        <AppBar title="Survivor" back="/home" />
+        <EmptyState
+          title="No league yet"
+          body="Survivor pools live inside a league. Create or join one first."
+          action={<Link href="/leagues/new" className="btn-primary h-11 px-5 text-sm">Create a league</Link>}
+        />
+      </main>
     );
   }
 
@@ -101,6 +108,8 @@ export default async function SurvivorPage({
   }
   options.sort((a, b) => a.teamAbbr.localeCompare(b.teamAbbr));
 
+  const pot = await loadPot(supabase, user.id, league, 'survivor');
+
   return (
     <main className="pb-4">
       <Header league={league.name} />
@@ -161,17 +170,17 @@ export default async function SurvivorPage({
         alive={alive}
         locked={pool.status === 'completed'}
       />
+
+      <div className="mt-5 space-y-2">
+        <ModePot pot={pot} leagueId={league.id} season={league.season} />
+        <ModeChatButton leagueId={league.id} mode="survivor" label="Survivor" />
+      </div>
     </main>
   );
 }
 
 function Header({ league }: { league: string }) {
-  return (
-    <header className="px-4 pb-2 pt-3">
-      <h1 className="display text-[28px] leading-none">Survivor</h1>
-      <p className="text-xs text-muted">{league}</p>
-    </header>
-  );
+  return <AppBar title="Survivor" subtitle={`${league} · one team a week, never twice`} back="/home" />;
 }
 
 function CreatePoolLink({ season, leagueId }: { season: number; leagueId: string }) {

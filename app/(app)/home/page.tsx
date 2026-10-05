@@ -8,6 +8,7 @@ import { pointsForOdds } from '@/lib/odds';
 import EmptyState from '@/components/EmptyState';
 import ModesHub from '@/components/ModesHub';
 import NotificationBell from '@/components/NotificationBell';
+import AppBar from '@/components/AppBar';
 
 export const metadata = { title: 'Home' };
 export const dynamic = 'force-dynamic';
@@ -254,15 +255,7 @@ export default async function HomePage() {
 }
 
 function Greeting({ username }: { username: string }) {
-  return (
-    <header className="flex items-center justify-between px-4 pb-3 pt-3">
-      <div className="min-w-0">
-        <div className="text-[11px] font-semibold text-muted">Welcome back</div>
-        <h1 className="display truncate text-[26px] leading-none">{username}</h1>
-      </div>
-      <NotificationBell />
-    </header>
-  );
+  return <AppBar title={username} subtitle="Welcome back" trailing={<NotificationBell />} />;
 }
 
 function describePick(

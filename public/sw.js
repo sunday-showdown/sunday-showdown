@@ -11,6 +11,13 @@ const PAGES = `pages-${VERSION}`;
 
 const PRECACHE = ['/offline', '/icon.svg', '/manifest.webmanifest'];
 
+// In development, Next serves chunks at stable paths like
+// /_next/static/chunks/app/layout.js and rewrites them in place. Cache-first is
+// right in production, where every build fingerprints those filenames, but in
+// dev it pins whatever was cached first and the app silently keeps running code
+// you edited an hour ago — which looks exactly like a change that did not work.
+const IS_DEV = ['localhost', '127.0.0.1', '[::1]'].includes(self.location.hostname);
+
 // Pages worth showing stale rather than showing nothing.
 const CACHEABLE_PAGES = ['/standings', '/profile', '/home'];
 
@@ -53,6 +60,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Static assets: cache-first, since Next fingerprints their filenames.
+  if (IS_DEV) return;
   if (url.pathname.startsWith('/_next/static/') || PRECACHE.includes(url.pathname)) {
     event.respondWith(
       caches.match(request).then(

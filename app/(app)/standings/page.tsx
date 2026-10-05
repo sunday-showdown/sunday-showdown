@@ -3,6 +3,7 @@ import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues } from '@/lib/week';
 import { loadSeasonStandings } from '@/lib/standings';
 import LeagueSwitcher from '@/components/LeagueSwitcher';
+import AppBar from '@/components/AppBar';
 import EmptyState from '@/components/EmptyState';
 
 export const metadata = { title: 'Standings' };
@@ -38,15 +39,11 @@ export default async function StandingsPage({
 
   return (
     <main className="pb-6">
-      <header className="flex items-center justify-between gap-3 px-4 pb-3 pt-3">
-        <div className="min-w-0">
-          <h1 className="display text-[28px] leading-none">Standings</h1>
-          <p className="truncate text-[11px] text-muted">
-            {league.name} · {league.season}
-          </p>
-        </div>
-        <LeagueSwitcher leagues={leagues} currentId={league.id} />
-      </header>
+      <AppBar
+        title="Standings"
+        subtitle={`${league.name} · ${league.season}`}
+        trailing={<LeagueSwitcher leagues={leagues} currentId={league.id} />}
+      />
 
       {rows.length === 0 ? (
         <EmptyState

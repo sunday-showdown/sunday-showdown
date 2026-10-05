@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { formatRecord } from '@/lib/format';
 import FollowButton from '@/components/FollowButton';
+import AppBar from '@/components/AppBar';
+import Avatar from '@/components/Avatar';
+import MessageButton from '@/components/MessageButton';
 
 export const metadata = { title: 'Player' };
 export const dynamic = 'force-dynamic';
@@ -15,7 +18,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   const { data: profile } = await supabase
     .from('profiles')
     .select(
-      'user_id, username, favorite_team, bio, career_pickem_wins, career_pickem_losses, career_pickem_pushes, career_ml_wins, career_spread_wins, career_total_wins, longest_pickem_streak, weekly_wins_count',
+      'user_id, username, avatar_url, favorite_team, bio, career_pickem_wins, career_pickem_losses, career_pickem_pushes, career_ml_wins, career_spread_wins, career_total_wins, longest_pickem_streak, weekly_wins_count',
     )
     .eq('user_id', id)
     .maybeSingle();
@@ -42,23 +45,26 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
 
   return (
     <main className="pb-6">
-      <header className="px-4 pb-3 pt-3">
-        <Link href="/friends" className="text-[11px] font-bold text-muted">
-          ‹ Friends
-        </Link>
+      <AppBar title={profile.username as string} back="/friends" compact />
 
-        <div className="mt-2 flex items-center gap-3">
-          <span className="display flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-raised text-[20px] text-muted">
-            {(profile.username as string).slice(0, 2).toUpperCase()}
-          </span>
-          <div className="min-w-0 flex-1">
-            <h1 className="display truncate text-[26px] leading-none">{profile.username}</h1>
-            <p className="truncate text-[11px] text-muted">
-              {(profile.favorite_team as string) || 'Sunday Showdown'}
-            </p>
-          </div>
-          {id !== me.id && <FollowButton userId={id} initiallyFollowing={Boolean(follow)} />}
+      <header className="flex items-center gap-3 px-4 pb-3 pt-1">
+        <Avatar
+          username={profile.username as string}
+          url={(profile.avatar_url as string) ?? null}
+          size="xl"
+        />
+        <div className="min-w-0 flex-1">
+          <h1 className="display truncate text-[26px] leading-none">{profile.username}</h1>
+          <p className="truncate text-[11px] text-muted">
+            {(profile.favorite_team as string) || 'Sunday Showdown'}
+          </p>
         </div>
+        {id !== me.id && (
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <FollowButton userId={id} initiallyFollowing={Boolean(follow)} />
+            <MessageButton userId={id} />
+          </div>
+        )}
       </header>
 
       <section className="px-4">

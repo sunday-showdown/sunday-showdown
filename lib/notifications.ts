@@ -21,7 +21,9 @@ export type NotificationType =
   | 'weekly_results'
   | 'achievements'
   | 'h2h_received'
-  | 'h2h_result';
+  | 'h2h_result'
+  | 'mention'
+  | 'direct_message';
 
 export interface NotificationDraft {
   userId: string;

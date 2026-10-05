@@ -5,6 +5,7 @@ import { liveState, liveValue, summarizeLive, type LivePick } from '@/lib/live';
 import { formatSpread } from '@/lib/format';
 import LiveCard, { type LiveRow } from '@/components/LiveCard';
 import EmptyState from '@/components/EmptyState';
+import AppBar from '@/components/AppBar';
 import type { PickemMarket } from '@/lib/types';
 
 export const metadata = { title: 'Live' };
@@ -103,12 +104,7 @@ export default async function LivePage({
 
   return (
     <main className="pb-4">
-      <header className="px-4 pb-3 pt-3">
-        <h1 className="display text-[28px] leading-none">Live</h1>
-        <p className="text-xs text-muted">
-          {league.name} · week {week}
-        </p>
-      </header>
+      <AppBar title="Live" subtitle={`${league.name} · week ${week}`} back="/home" />
 
       <LiveCard
         rows={rows}

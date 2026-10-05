@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadSeasonStandings } from '@/lib/standings';
 import LeagueManager, { type Member } from '@/components/LeagueManager';
+import AppBar from '@/components/AppBar';
 
 export const metadata = { title: 'League' };
 export const dynamic = 'force-dynamic';
@@ -54,15 +55,11 @@ export default async function LeagueDetailPage({
 
   return (
     <main className="pb-6">
-      <header className="px-4 pb-3 pt-3">
-        <Link href="/leagues" className="text-[11px] font-bold text-muted">
-          ‹ Leagues
-        </Link>
-        <h1 className="display mt-1 text-[28px] leading-none">{league.name}</h1>
-        <p className="text-[11px] text-muted">
-          {league.season} · week {league.current_week}
-        </p>
-      </header>
+      <AppBar
+        title={league.name}
+        subtitle={`${league.season} · week ${league.current_week}`}
+        back="/leagues"
+      />
 
       <LeagueManager
         leagueId={league.id as string}

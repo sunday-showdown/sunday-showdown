@@ -2,10 +2,11 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import AppBar from '@/components/AppBar';
 
 export default function NewSurvivorPoolPage() {
   return (
-    <Suspense fallback={<div className="px-5 pt-6" />}>
+    <Suspense fallback={<div />}>
       <NewPoolForm />
     </Suspense>
   );
@@ -45,7 +46,9 @@ function NewPoolForm() {
   };
 
   return (
-    <main className="px-5 pt-6">
+    <main>
+      <AppBar title="Start a pool" back="/survivor" compact />
+      <div className="px-5 pt-2">
       <h1 className="display text-[28px] leading-none">Start a pool</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
         Everyone picks one team a week to win. Get it wrong and you&apos;re out.
@@ -80,6 +83,7 @@ function NewPoolForm() {
           {busy ? 'Creating…' : 'Create pool'}
         </button>
       </form>
+      </div>
     </main>
   );
 }

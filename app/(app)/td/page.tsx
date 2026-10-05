@@ -1,9 +1,13 @@
 import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues } from '@/lib/week';
+import { loadPot } from '@/lib/pot';
 import TdBoard, { type TdCandidate } from '@/components/TdBoard';
 import WeekSelector from '@/components/WeekSelector';
 import EmptyState from '@/components/EmptyState';
+import AppBar from '@/components/AppBar';
+import ModePot from '@/components/ModePot';
+import ModeChatButton from '@/components/ModeChatButton';
 import { isCardLocked } from '@/lib/contest';
 
 export const metadata = { title: 'TD Scorer' };
@@ -21,11 +25,14 @@ export default async function TdPage({
   const leagues = await loadMyLeagues(supabase, user.id);
   if (leagues.length === 0) {
     return (
-      <EmptyState
-        title="No league yet"
-        body="TD Scorer runs inside a league."
-        action={<Link href="/leagues/new" className="btn-primary h-11 px-5 text-sm">Create a league</Link>}
-      />
+      <main>
+        <AppBar title="TD Scorer" back="/home" />
+        <EmptyState
+          title="No league yet"
+          body="TD Scorer runs inside a league."
+          action={<Link href="/leagues/new" className="btn-primary h-11 px-5 text-sm">Create a league</Link>}
+        />
+      </main>
     );
   }
 
@@ -45,8 +52,7 @@ export default async function TdPage({
   if (!challenge) {
     return (
       <main>
-        <Header league={league.name} />
-        <WeekSelector week={week} />
+        <Header league={league.name} week={week} />
         <EmptyState title={`Week ${week} isn't open yet`} body="Contests open once the schedule is published." />
       </main>
     );
@@ -105,10 +111,11 @@ export default async function TdPage({
     });
   }
 
+  const pot = await loadPot(supabase, user.id, league, 'td');
+
   return (
     <main className="pb-4">
-      <Header league={league.name} />
-      <WeekSelector week={week} />
+      <Header league={league.name} week={week} />
 
       {candidates.length === 0 ? (
         <EmptyState
@@ -127,15 +134,22 @@ export default async function TdPage({
           locked={isCardLocked(challenge.lock_time as string)}
         />
       )}
+
+      <div className="mt-5 space-y-2">
+        <ModePot pot={pot} leagueId={league.id} season={league.season} />
+        <ModeChatButton leagueId={league.id} mode="td" label="TD Scorer" />
+      </div>
     </main>
   );
 }
 
-function Header({ league }: { league: string }) {
+function Header({ league, week }: { league: string; week: number }) {
   return (
-    <header className="px-4 pb-1 pt-3">
-      <h1 className="display text-[28px] leading-none">TD Scorer</h1>
-      <p className="text-xs text-muted">{league} · pick anyone to find the end zone</p>
-    </header>
+    <AppBar
+      title="TD Scorer"
+      subtitle={`${league} · pick anyone to find the end zone`}
+      back="/home"
+      below={<WeekSelector week={week} />}
+    />
   );
 }

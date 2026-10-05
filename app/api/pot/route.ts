@@ -6,6 +6,7 @@
 // dispute comes up later.
 
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
+import { isPotMode, POT_LABEL } from '@/lib/pot';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,10 +25,14 @@ export async function POST(request: Request) {
   const supabase = await createServerSupabase();
 
   if (action === 'create') {
-    const { leagueId, season, buyIn, name } = body as Record<string, unknown>;
+    const { leagueId, season, buyIn, name, competitionType } = body as Record<string, unknown>;
     if (typeof leagueId !== 'string' || typeof season !== 'number') {
       return Response.json({ error: 'league and season are required' }, { status: 400 });
     }
+    // Each mode carries its own pot. Defaulting to pick'em keeps a client that
+    // predates the change working rather than silently creating the wrong one.
+    const mode = isPotMode(competitionType) ? competitionType : 'pickem';
+
     const amount = Number(buyIn);
     if (!Number.isFinite(amount) || amount < 0 || amount > 100000) {
       return Response.json({ error: 'That buy-in does not look right.' }, { status: 400 });
@@ -36,8 +41,8 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from('pots')
       .insert({
-        name: typeof name === 'string' && name.trim() ? name.trim() : 'Season pot',
-        competition_type: 'pickem',
+        name: typeof name === 'string' && name.trim() ? name.trim() : POT_LABEL[mode],
+        competition_type: mode,
         league_id: leagueId,
         owner_id: user.id,
         season,
@@ -47,7 +52,20 @@ export async function POST(request: Request) {
       .select('id')
       .single();
 
-    if (error || !data) return Response.json({ error: 'could not create that pot' }, { status: 500 });
+    if (error || !data) {
+      // The unique index in migration 0013 is what rejects a second pot for the
+      // same mode, which is a race two people starting one at once can lose.
+      const { data: existing } = await supabase
+        .from('pots')
+        .select('id')
+        .eq('league_id', leagueId)
+        .eq('season', season)
+        .eq('competition_type', mode)
+        .maybeSingle();
+
+      if (existing) return Response.json({ ok: true, potId: existing.id, existed: true });
+      return Response.json({ error: 'could not create that pot' }, { status: 500 });
+    }
     return Response.json({ ok: true, potId: data.id });
   }
 

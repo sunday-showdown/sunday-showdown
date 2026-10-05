@@ -1,8 +1,13 @@
 import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues } from '@/lib/week';
+import { loadPot } from '@/lib/pot';
 import PlaygroundCard from '@/components/PlaygroundCard';
 import EmptyState from '@/components/EmptyState';
+import AppBar from '@/components/AppBar';
+import LeagueSwitcher from '@/components/LeagueSwitcher';
+import ModePot from '@/components/ModePot';
+import ModeChatButton from '@/components/ModeChatButton';
 
 export const metadata = { title: 'Playground' };
 export const dynamic = 'force-dynamic';
@@ -19,11 +24,14 @@ export default async function PlaygroundPage({
   const leagues = await loadMyLeagues(supabase, user.id);
   if (leagues.length === 0) {
     return (
-      <EmptyState
-        title="No league yet"
-        body="Playground calls are shown to your league."
-        action={<Link href="/leagues/new" className="btn-primary h-11 px-5 text-sm">Create a league</Link>}
-      />
+      <main>
+        <AppBar title="Playground" back="/home" />
+        <EmptyState
+          title="No league yet"
+          body="Playground calls are shown to your league."
+          action={<Link href="/leagues/new" className="btn-primary h-11 px-5 text-sm">Create a league</Link>}
+        />
+      </main>
     );
   }
 
@@ -77,14 +85,16 @@ export default async function PlaygroundPage({
   const nameOf = new Map((profiles ?? []).map((p) => [p.user_id as string, p.username as string]));
   const authorOfCard = new Map((publishedCards ?? []).map((c) => [c.id as string, c.user_id as string]));
 
+  const pot = await loadPot(supabase, user.id, league, 'playground');
+
   return (
     <main className="pb-4">
-      <header className="px-4 pb-3 pt-3">
-        <h1 className="display text-[28px] leading-none">Playground</h1>
-        <p className="text-xs text-muted">
-          {league.name} · week {week} · calls for bragging rights, not points
-        </p>
-      </header>
+      <AppBar
+        title="Playground"
+        subtitle={`${league.name} · week ${week} · calls for bragging rights, not points`}
+        back="/home"
+        trailing={<LeagueSwitcher leagues={leagues} currentId={league.id} />}
+      />
 
       <PlaygroundCard
         leagueId={league.id}
@@ -110,6 +120,11 @@ export default async function PlaygroundPage({
           result: c.result as string,
         }))}
       />
+
+      <div className="mt-5 space-y-2">
+        <ModePot pot={pot} leagueId={league.id} season={league.season} />
+        <ModeChatButton leagueId={league.id} mode="playground" label="Playground" />
+      </div>
     </main>
   );
 }

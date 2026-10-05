@@ -1,10 +1,18 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef } from 'react';
 
 export default function WeekSelector({ week, maxWeek = 18 }: { week: number; maxWeek?: number }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const active = useRef<HTMLButtonElement>(null);
+
+  // Eighteen weeks do not fit on a phone, so by December the current week is
+  // off the right edge and the row opens showing week 1. Centre it instead.
+  useEffect(() => {
+    active.current?.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }, [week]);
 
   const go = (target: number) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -17,6 +25,7 @@ export default function WeekSelector({ week, maxWeek = 18 }: { week: number; max
       {Array.from({ length: maxWeek }, (_, i) => i + 1).map((n) => (
         <button
           key={n}
+          ref={n === week ? active : undefined}
           type="button"
           onClick={() => go(n)}
           aria-current={n === week ? 'true' : undefined}

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import AppBar from '@/components/AppBar';
 
 export default function NewLeaguePage() {
   const router = useRouter();
@@ -35,7 +36,9 @@ export default function NewLeaguePage() {
 
   if (inviteCode) {
     return (
-      <main className="px-5 pt-6">
+      <main>
+        <AppBar title="Create a league" back="/leagues" compact />
+        <div className="px-5 pt-2">
         <h1 className="display text-[28px] leading-none">
           {name} is live
         </h1>
@@ -66,12 +69,15 @@ export default function NewLeaguePage() {
         >
           Make your first picks
         </button>
-      </main>
+      </div>
+    </main>
     );
   }
 
   return (
-    <main className="px-5 pt-6">
+    <main>
+      <AppBar title="Create a league" back="/leagues" compact />
+      <div className="px-5 pt-2">
       <h1 className="display text-[28px] leading-none">Create a league</h1>
       <p className="mt-2 text-sm text-muted">
         You&apos;ll be the commissioner. You can invite people straight after.
@@ -104,6 +110,7 @@ export default function NewLeaguePage() {
           {busy ? 'Creating…' : 'Create league'}
         </button>
       </form>
+      </div>
     </main>
   );
 }
