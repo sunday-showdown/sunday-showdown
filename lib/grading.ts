@@ -11,6 +11,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { gradePick, summarizeWeek, rankWeek } from './scoring';
 import { buildWeeklyActivity, writeActivity } from './activity';
+import { buildWeeklyNotifications, deliver } from './notifications';
+import { evaluateAchievements, grantAchievements } from './achievements';
 import type { PickemMarket, PickResult } from './types';
 
 export interface GradingReport {
@@ -220,19 +222,21 @@ async function generateActivity(
   let created = 0;
 
   for (const leagueId of leagueIds) {
+    const leagueStandings = results
+      .filter((r) => r.league_id === leagueId)
+      .map((r) => ({
+        userId: r.user_id as string,
+        username: usernames.get(r.user_id as string) ?? 'Someone',
+        totalPoints: Math.round(Number(r.total_points)),
+        rank: (r.rank as number) ?? 0,
+        isWinner: Boolean(r.is_winner),
+      }));
+
     const entries = buildWeeklyActivity({
       season,
       week,
       leagueId,
-      standings: results
-        .filter((r) => r.league_id === leagueId)
-        .map((r) => ({
-          userId: r.user_id as string,
-          username: usernames.get(r.user_id as string) ?? 'Someone',
-          totalPoints: Math.round(Number(r.total_points)),
-          rank: (r.rank as number) ?? 0,
-          isWinner: Boolean(r.is_winner),
-        })),
+      standings: leagueStandings,
       picks: (pickRows ?? [])
         .filter((p) => p.league_id === leagueId)
         .map((p) => ({
@@ -250,9 +254,79 @@ async function generateActivity(
     const written = await writeActivity(db, entries);
     report.warnings.push(...written.warnings);
     created += written.created;
+
+    const notified = await deliver(
+      db,
+      buildWeeklyNotifications({ season, week, standings: leagueStandings }),
+    );
+    report.warnings.push(...notified.warnings);
+
+    await awardAchievements(db, season, week, leagueStandings, pickRows ?? [], report);
   }
 
   return created;
+}
+
+/**
+ * Award badges from the week just graded.
+ *
+ * Career totals come from profiles, which rebuildCareerStats has already
+ * recomputed, so the numbers here are the stored ones rather than a second
+ * tally that could disagree.
+ */
+async function awardAchievements(
+  db: SupabaseClient,
+  season: number,
+  week: number,
+  standings: readonly { userId: string; isWinner: boolean }[],
+  picks: readonly Record<string, unknown>[],
+  report: GradingReport,
+): Promise<void> {
+  if (standings.length === 0) return;
+
+  const userIds = standings.map((s) => s.userId);
+  const { data: profiles, error } = await db
+    .from('profiles')
+    .select('user_id, career_pickem_wins, current_pickem_streak, weekly_wins_count, survivor_pools_won')
+    .in('user_id', userIds);
+
+  if (error) {
+    report.warnings.push(`achievement profiles: ${error.message}`);
+    return;
+  }
+
+  const profileFor = new Map((profiles ?? []).map((p) => [p.user_id as string, p]));
+  const awards = [];
+
+  for (const standing of standings) {
+    const profile = profileFor.get(standing.userId);
+    const mine = picks.filter((p) => p.user_id === standing.userId);
+
+    // The longest price this player actually landed, which is what the
+    // underdog badge is about.
+    const longest = mine
+      .filter((p) => p.result === 'win')
+      .map((p) => Number(p.contest_odds ?? 0))
+      .reduce((best, odds) => Math.max(best, odds), 0);
+
+    awards.push(
+      ...evaluateAchievements({
+        userId: standing.userId,
+        season,
+        week,
+        weekResults: mine.map((p) => String(p.result)),
+        careerWins: Number(profile?.career_pickem_wins ?? 0),
+        currentStreak: Number(profile?.current_pickem_streak ?? 0),
+        weeklyWins: Number(profile?.weekly_wins_count ?? 0) + (standing.isWinner ? 1 : 0),
+        survivorWins: Number(profile?.survivor_pools_won ?? 0),
+        weeksPlayed: week,
+        biggestOddsWon: longest > 0 ? longest : null,
+      }),
+    );
+  }
+
+  const granted = await grantAchievements(db, awards);
+  report.warnings.push(...granted.warnings);
 }
 
 async function writeWeeklyResults(

@@ -3,6 +3,7 @@ import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues } from '@/lib/week';
 import { formatRecord } from '@/lib/format';
 import SignOutButton from '@/components/SignOutButton';
+import AchievementGrid, { type AchievementTile } from '@/components/AchievementGrid';
 
 export const metadata = { title: 'Profile' };
 
@@ -37,6 +38,19 @@ export default async function ProfilePage() {
       .maybeSingle<ProfileRow>(),
     loadMyLeagues(supabase, user.id),
   ]);
+
+  const [{ data: catalogue }, { data: mine }] = await Promise.all([
+    supabase.from('achievements').select('id, name, description').order('sort_order'),
+    supabase.from('user_achievements').select('achievement_id').eq('user_id', user.id),
+  ]);
+
+  const held = new Set((mine ?? []).map((a) => a.achievement_id as string));
+  const tiles: AchievementTile[] = (catalogue ?? []).map((a) => ({
+    id: a.id as string,
+    name: a.name as string,
+    description: a.description as string,
+    earned: held.has(a.id as string),
+  }));
 
   const graded =
     (profile?.career_pickem_wins ?? 0) +
@@ -149,6 +163,8 @@ export default async function ProfilePage() {
           </div>
         </div>
       </section>
+
+      {tiles.length > 0 && <AchievementGrid tiles={tiles} />}
 
       <section className="mt-8 px-4">
         <SignOutButton />

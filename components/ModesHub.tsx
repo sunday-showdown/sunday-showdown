@@ -4,6 +4,12 @@ import Link from 'next/link';
 // phone, so these live on Home where they are still one tap from the start.
 const MODES = [
   {
+    href: '/live',
+    title: 'Live',
+    blurb: 'Watch your card as it settles.',
+    icon: '📡',
+  },
+  {
     href: '/survivor',
     title: 'Survivor',
     blurb: 'One team a week. Never the same twice.',
@@ -20,6 +26,12 @@ const MODES = [
     title: 'Head to head',
     blurb: 'Call someone out for the week.',
     icon: '⚔️',
+  },
+  {
+    href: '/pot',
+    title: 'Pot',
+    blurb: 'Who has paid in, tracked.',
+    icon: '💰',
   },
   {
     href: '/playground',

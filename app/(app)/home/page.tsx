@@ -7,6 +7,7 @@ import { formatCountdown, formatKickoff, formatSpread } from '@/lib/format';
 import { pointsForOdds } from '@/lib/odds';
 import EmptyState from '@/components/EmptyState';
 import ModesHub from '@/components/ModesHub';
+import NotificationBell from '@/components/NotificationBell';
 
 export const metadata = { title: 'Home' };
 
@@ -214,10 +215,11 @@ export default async function HomePage() {
 
 function Greeting({ username }: { username: string }) {
   return (
-    <header className="px-4 pb-3 pt-3 safe-top">
+    <header className="flex items-center justify-between px-4 pb-3 pt-3 safe-top">
       <h1 className="font-display text-2xl font-extrabold tracking-tight">
         Hey, {username}
       </h1>
+      <NotificationBell />
     </header>
   );
 }
