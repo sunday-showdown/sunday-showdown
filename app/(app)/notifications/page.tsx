@@ -2,6 +2,7 @@ import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import NotificationList, { type Note } from '@/components/NotificationList';
 import EmptyState from '@/components/EmptyState';
 import PushToggle from '@/components/PushToggle';
+import { publicVapidKey } from '@/lib/vapid';
 
 export const metadata = { title: 'Notifications' };
 export const dynamic = 'force-dynamic';
@@ -33,7 +34,7 @@ export default async function NotificationsPage() {
       </header>
 
       <section className="px-4 pb-4">
-        <PushToggle publicKey={process.env.VAPID_PUBLIC_KEY ?? null} />
+        <PushToggle publicKey={publicVapidKey()} />
       </section>
 
       {notes.length === 0 ? (

@@ -9,6 +9,7 @@
 
 import webpush from 'web-push';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { publicVapidKey } from './vapid';
 
 export interface PushPayload {
   title: string;
@@ -23,7 +24,10 @@ let configured = false;
 function configure(): boolean {
   if (configured) return true;
 
-  const publicKey = process.env.VAPID_PUBLIC_KEY;
+  // Either name works. The NEXT_PUBLIC_ form was the original instruction and
+  // Vercel refuses it on a variable marked sensitive, so both are accepted
+  // rather than making the deployment depend on which one got typed.
+  const publicKey = publicVapidKey();
   const privateKey = process.env.VAPID_PRIVATE_KEY;
   const subject = process.env.VAPID_SUBJECT ?? 'mailto:noreply@sundayshowdown.app';
   if (!publicKey || !privateKey) return false;
