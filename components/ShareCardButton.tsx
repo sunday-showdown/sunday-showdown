@@ -148,9 +148,7 @@ export default function ShareCardButton({
               >
                 {channel.emoji ?? '💬'}
               </span>
-              <span className="min-w-0 flex-1 truncate text-[14px] font-bold">
-                <span className="text-muted">#</span> {channel.name}
-              </span>
+              <span className="min-w-0 flex-1 truncate text-[14px] font-bold">{channel.name}</span>
               <span className="shrink-0 text-[11px] font-bold text-brand">
                 {busy === channel.id ? '…' : 'Post'}
               </span>

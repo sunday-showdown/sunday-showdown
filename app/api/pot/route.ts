@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   const supabase = await createServerSupabase();
 
   if (action === 'create') {
-    const { leagueId, season, buyIn, name, competitionType } = body as Record<string, unknown>;
+    const { leagueId, season, buyIn, name, competitionType, competitionId } = body as Record<string, unknown>;
     if (typeof leagueId !== 'string' || typeof season !== 'number') {
       return Response.json({ error: 'league and season are required' }, { status: 400 });
     }
@@ -43,6 +43,7 @@ export async function POST(request: Request) {
       .insert({
         name: typeof name === 'string' && name.trim() ? name.trim() : POT_LABEL[mode],
         competition_type: mode,
+        competition_id: typeof competitionId === 'string' ? competitionId : null,
         league_id: leagueId,
         owner_id: user.id,
         season,
@@ -55,13 +56,18 @@ export async function POST(request: Request) {
     if (error || !data) {
       // The unique index in migration 0013 is what rejects a second pot for the
       // same mode, which is a race two people starting one at once can lose.
-      const { data: existing } = await supabase
+      let lookup = supabase
         .from('pots')
         .select('id')
-        .eq('league_id', leagueId)
         .eq('season', season)
-        .eq('competition_type', mode)
-        .maybeSingle();
+        .eq('competition_type', mode);
+
+      lookup =
+        typeof competitionId === 'string'
+          ? lookup.eq('competition_id', competitionId)
+          : lookup.eq('league_id', leagueId).is('competition_id', null);
+
+      const { data: existing } = await lookup.maybeSingle();
 
       if (existing) return Response.json({ ok: true, potId: existing.id, existed: true });
       return Response.json({ error: 'could not create that pot' }, { status: 500 });
@@ -100,6 +106,40 @@ export async function POST(request: Request) {
       action: isPaid ? 'marked_paid' : 'marked_unpaid',
       target_user_id: targetUserId,
       new_value: { paid: isPaid },
+    });
+
+    await refreshTotals(supabase, potId);
+    return Response.json({ ok: true });
+  }
+
+  if (action === 'claim') {
+    const { potId, claimed } = body as Record<string, unknown>;
+    if (typeof potId !== 'string') {
+      return Response.json({ error: 'pot is required' }, { status: 400 });
+    }
+
+    // Saying you have paid, which is not the same as having been confirmed. The
+    // trigger in migration 0018 is what stops this setting `paid` — see the note
+    // there about why that rule lives in the database.
+    const { error } = await supabase.from('pot_participants').upsert(
+      {
+        pot_id: potId,
+        user_id: user.id,
+        claimed_at: claimed === false ? null : new Date().toISOString(),
+      },
+      { onConflict: 'pot_id,user_id' },
+    );
+
+    if (error) {
+      return Response.json({ error: 'Could not record that.' }, { status: 403 });
+    }
+
+    await supabase.from('pot_audit').insert({
+      pot_id: potId,
+      actor_id: user.id,
+      action: claimed === false ? 'withdrew_claim' : 'claimed_paid',
+      target_user_id: user.id,
+      new_value: { claimed: claimed !== false },
     });
 
     await refreshTotals(supabase, potId);

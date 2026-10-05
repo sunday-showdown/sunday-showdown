@@ -238,11 +238,11 @@ export default function ChannelList({
           value={name}
           onChange={(event) => setName(event.target.value)}
           maxLength={40}
-          placeholder="injury-news"
+          placeholder="Injury news"
           className="field"
         />
         <p className="mb-4 mt-1.5 text-[11px] text-muted">
-          Lowercase with hyphens, like Discord. Spaces become hyphens.
+          Call it whatever you like — spaces and capitals are fine.
         </p>
 
         <label htmlFor="channel-topic" className="eyebrow pb-1.5">
@@ -328,7 +328,6 @@ function ChannelRow({ channel }: { channel: ChannelSummary }) {
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          {!isDm && <span className="text-[14px] font-bold text-muted">#</span>}
           <span
             className={`min-w-0 truncate text-[14.5px] ${
               channel.unread > 0 ? 'font-extrabold' : 'font-bold'

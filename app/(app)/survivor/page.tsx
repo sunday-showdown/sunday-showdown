@@ -9,6 +9,7 @@ import AppBar from '@/components/AppBar';
 import LeagueSwitcher from '@/components/LeagueSwitcher';
 import ModePot from '@/components/ModePot';
 import ModeChatButton from '@/components/ModeChatButton';
+import PoolInvite, { type InviteCandidate } from '@/components/PoolInvite';
 import type { SurvivorPickResult } from '@/lib/types';
 
 export const metadata = { title: 'Survivor' };
@@ -39,7 +40,7 @@ export default async function SurvivorPage({
 
   const { data: pools } = await supabase
     .from('survivor_pools')
-    .select('id, name, season, status, alive_count, member_count, winner_id')
+    .select('id, name, season, status, alive_count, member_count, winner_id, invite_code, buy_in, commissioner_id')
     .eq('season', league.season)
     .order('created_at', { ascending: true });
 
@@ -51,8 +52,15 @@ export default async function SurvivorPage({
         <Header league={league.name} leagues={leagues} currentId={league.id} />
         <EmptyState
           title="No pool running"
-          body="Start one and everyone in the league can enter. Pick one team a week to win — you cannot pick the same team twice."
-          action={<CreatePoolLink season={league.season} leagueId={league.id} />}
+          body="Start one and invite whoever you like — your league, your friends, or anybody with the code. Pick one team a week to win, and never the same team twice."
+          action={
+            <div className="flex flex-col gap-2">
+              <CreatePoolLink season={league.season} leagueId={league.id} />
+              <Link href="/survivor/join" className="btn-ghost h-11 px-5 text-sm">
+                Join with a code
+              </Link>
+            </div>
+          }
         />
       </main>
     );
@@ -108,7 +116,37 @@ export default async function SurvivorPage({
   }
   options.sort((a, b) => a.teamAbbr.localeCompare(b.teamAbbr));
 
-  const pot = await loadPot(supabase, user.id, league, 'survivor');
+  // The pot belongs to this pool, not to survivor in general, so two pools in
+  // one league can run different buy-ins.
+  const pot = await loadPot(supabase, user.id, league, 'survivor', pool.id as string);
+
+  // Who this person could invite: their league, plus anyone they follow.
+  const [{ data: leagueMates }, { data: following }] = await Promise.all([
+    supabase.from('league_members').select('user_id').eq('league_id', league.id),
+    supabase.from('follows').select('following_id').eq('follower_id', user.id),
+  ]);
+
+  const mateIds = (leagueMates ?? []).map((m) => m.user_id as string);
+  const candidateIds = [
+    ...new Set([...mateIds, ...(following ?? []).map((f) => f.following_id as string)]),
+  ].filter((id) => id !== user.id);
+
+  const { data: candidateProfiles } = candidateIds.length
+    ? await supabase
+        .from('profiles')
+        .select('user_id, username, avatar_url')
+        .in('user_id', candidateIds)
+    : { data: [] };
+
+  const inLeague = new Set(mateIds);
+  const candidates: InviteCandidate[] = (candidateProfiles ?? [])
+    .map((profile) => ({
+      userId: profile.user_id as string,
+      username: profile.username as string,
+      avatarUrl: (profile.avatar_url as string) ?? null,
+      reason: inLeague.has(profile.user_id as string) ? 'In your league' : 'You follow them',
+    }))
+    .sort((a, b) => a.username.localeCompare(b.username));
 
   return (
     <main className="pb-4">
@@ -172,7 +210,18 @@ export default async function SurvivorPage({
       />
 
       <div className="mt-5 space-y-2">
-        <ModePot pot={pot} leagueId={league.id} season={league.season} />
+        <PoolInvite
+          poolName={pool.name as string}
+          inviteCode={pool.invite_code as string}
+          buyIn={Math.round(Number(pool.buy_in ?? 0))}
+          candidates={candidates}
+        />
+        <ModePot
+          pot={pot}
+          leagueId={league.id}
+          season={league.season}
+          competitionId={pool.id as string}
+        />
         <ModeChatButton leagueId={league.id} mode="survivor" label="Survivor" />
       </div>
     </main>

@@ -117,13 +117,19 @@ export async function PUT(request: Request) {
     return Response.json({ error: 'invalid JSON body' }, { status: 400 });
   }
 
-  const { name, leagueId, season } = (body ?? {}) as Record<string, unknown>;
+  const { name, leagueId, season, buyIn } = (body ?? {}) as Record<string, unknown>;
 
   if (typeof name !== 'string' || name.trim().length < 3 || name.trim().length > 48) {
     return Response.json({ error: 'Pool names are 3–48 characters.' }, { status: 400 });
   }
   if (typeof season !== 'number' || !Number.isInteger(season)) {
     return Response.json({ error: 'season is required' }, { status: 400 });
+  }
+
+  // A pot is optional. Zero and absent mean the same thing — play for pride.
+  const stake = buyIn === null || buyIn === undefined || buyIn === '' ? 0 : Number(buyIn);
+  if (!Number.isFinite(stake) || stake < 0 || stake > 100000) {
+    return Response.json({ error: 'That buy-in does not look right.' }, { status: 400 });
   }
 
   const supabase = await createServerSupabase();
@@ -135,13 +141,34 @@ export async function PUT(request: Request) {
       commissioner_id: user.id,
       season,
       status: 'open',
+      buy_in: stake,
+      pot_enabled: stake > 0,
     })
-    .select('id')
+    .select('id, invite_code')
     .single();
 
   if (error || !data) {
     return Response.json({ error: 'Could not create that pool.' }, { status: 500 });
   }
 
-  return Response.json({ ok: true, poolId: data.id });
+  // The creator is in their own pool. A trigger cannot do this, because the
+  // membership row is what RLS reads to decide who may see the pool at all.
+  await supabase.from('survivor_members').insert({ pool_id: data.id, user_id: user.id });
+
+  // The pot belongs to this pool rather than to survivor in general, so two
+  // pools in one league can run different buy-ins.
+  if (stake > 0 && typeof leagueId === 'string') {
+    await supabase.from('pots').insert({
+      name: name.trim(),
+      competition_type: 'survivor',
+      competition_id: data.id,
+      league_id: leagueId,
+      owner_id: user.id,
+      season,
+      buy_in: stake,
+      status: 'open',
+    });
+  }
+
+  return Response.json({ ok: true, poolId: data.id, inviteCode: data.invite_code });
 }

@@ -71,10 +71,15 @@ export default function AppBar({ title, subtitle, back, trailing, compact }: Pro
         ref={bar}
         className={`sticky top-0 z-30 transition-[background-color,box-shadow,backdrop-filter] duration-200 ${
           collapsed
-            ? 'bg-bg/80 shadow-[0_1px_0_0_rgb(var(--line)/0.8)] backdrop-blur-xl'
+            ? 'bg-bg/95 shadow-[0_1px_0_0_rgb(var(--line)/0.8)] backdrop-blur-xl'
             : 'bg-transparent'
         }`}
-        style={{ paddingTop: 'max(var(--safe-top, env(safe-area-inset-top)), 0.5rem)' }}
+        // calc rather than max alone: the inset puts the bar below the status
+        // bar, and the extra 6px is the gap between them. Without it the title
+        // sits flush against the clock and reads as clipped even when it is not.
+        style={{
+          paddingTop: 'calc(max(var(--safe-top, env(safe-area-inset-top)), 0.5rem) + 6px)',
+        }}
       >
         <div className="mx-auto flex h-11 max-w-md items-center gap-1 px-2">
           {back ? (

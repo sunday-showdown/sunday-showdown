@@ -16,6 +16,8 @@ function NewPoolForm() {
   const router = useRouter();
   const params = useSearchParams();
   const [name, setName] = useState('');
+  const [potEnabled, setPotEnabled] = useState(false);
+  const [buyIn, setBuyIn] = useState('20');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -31,6 +33,7 @@ function NewPoolForm() {
         name,
         leagueId: params.get('league'),
         season: Number(params.get('season')),
+        buyIn: potEnabled ? Number(buyIn) : 0,
       }),
     });
     const result = await response.json();
@@ -71,6 +74,40 @@ function NewPoolForm() {
             className="field"
             placeholder="Last One Standing"
           />
+        </div>
+
+        {/* Optional on purpose. Most pools are played for nothing, and asking
+            for a number up front implies otherwise. */}
+        <div className="card px-4 py-3.5">
+          <label className="flex items-center justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block text-[14px] font-bold">Play for a pot</span>
+              <span className="mt-0.5 block text-[11.5px] leading-snug text-muted">
+                Everyone who joins is asked for a buy-in. You tick people off as
+                they pay — the app never handles the money.
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={potEnabled}
+              onChange={(event) => setPotEnabled(event.target.checked)}
+              className="h-6 w-6 shrink-0 accent-brand"
+            />
+          </label>
+
+          {potEnabled && (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-sm font-semibold text-muted">$</span>
+              <input
+                inputMode="decimal"
+                value={buyIn}
+                onChange={(event) => setBuyIn(event.target.value.replace(/[^0-9.]/g, ''))}
+                aria-label="Buy-in per person"
+                className="field tabnum flex-1"
+              />
+              <span className="text-[12px] text-muted">per person</span>
+            </div>
+          )}
         </div>
 
         {error && (

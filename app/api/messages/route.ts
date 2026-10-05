@@ -288,7 +288,7 @@ async function notifyAbout(
         .map((p) => p.user_id as string)
         .filter((id) => id !== message.senderId);
 
-      title = `${senderName} in #${channel.name}`;
+      title = `${senderName} in ${channel.name}`;
     }
 
     if (recipients.length === 0) return;

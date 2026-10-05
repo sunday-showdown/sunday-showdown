@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const channel = await loadChannel(supabase, user.id, (await params).id);
   if (!channel) return { title: 'Chat' };
 
-  return { title: channel.kind === 'dm' ? channelLabel(channel) : `#${channel.name}` };
+  return { title: channelLabel(channel) };
 }
 
 export default async function ChannelPage({ params }: { params: Promise<{ id: string }> }) {
@@ -37,7 +37,7 @@ export default async function ChannelPage({ params }: { params: Promise<{ id: st
   return (
     <main>
       <AppBar
-        title={isDm ? label : `#${label}`}
+        title={label}
         back="/feed"
         compact
         trailing={
@@ -58,7 +58,7 @@ export default async function ChannelPage({ params }: { params: Promise<{ id: st
         channelId={channel.id}
         leagueId={channel.leagueId}
         myUserId={user.id}
-        placeholder={isDm ? `Message ${label}` : `Message #${label}`}
+        placeholder={`Message ${label}`}
         initialMessages={messages}
       />
     </main>

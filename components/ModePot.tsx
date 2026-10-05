@@ -12,6 +12,12 @@ import { POT_LABEL, type PotView } from '@/lib/pot';
  * of it. A pot that occupied the top of the screen would push the picks down on
  * every visit for a thing most people check once a week.
  *
+ * Two-sided on purpose. The owner ticking people off is only half of it — the
+ * half that leaves everyone else wondering whether their payment landed. So a
+ * member can say "I've paid", the owner sees who is waiting, and confirming is
+ * the thing that actually moves money into the collected total. The database
+ * enforces which of the two of you may do which, not this component.
+ *
  * Every write goes through /api/pot, which records who did it in pot_audit.
  * That trail is the whole value of tracking a pot in software rather than in a
  * group text.
@@ -20,10 +26,13 @@ export default function ModePot({
   pot,
   leagueId,
   season,
+  competitionId,
 }: {
   pot: PotView;
   leagueId: string;
   season: number;
+  /** Set when the pot belongs to one pool rather than to the mode in general. */
+  competitionId?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -57,6 +66,14 @@ export default function ModePot({
 
   const label = POT_LABEL[pot.mode];
   const paidCount = pot.members.filter((member) => member.paid).length;
+
+  // What this person should do next, which is the only thing the collapsed row
+  // has space to say.
+  const myStatus = pot.me.paid
+    ? { text: 'You are paid up', tone: 'text-win' }
+    : pot.me.claimed
+      ? { text: 'Waiting on confirmation', tone: 'text-live' }
+      : { text: `You owe $${pot.buyIn}`, tone: 'text-brand' };
 
   return (
     <section className="px-4">
@@ -93,6 +110,28 @@ export default function ModePot({
               </div>
             )}
           </div>
+
+          {pot.potId && (
+            <span
+              className={`chip shrink-0 ${
+                pot.isOwner
+                  ? pot.awaitingConfirmation > 0
+                    ? 'bg-live/15 text-live'
+                    : 'bg-raised text-muted'
+                  : pot.me.paid
+                    ? 'bg-win/15 text-win'
+                    : pot.me.claimed
+                      ? 'bg-live/15 text-live'
+                      : 'bg-brand/15 text-brand'
+              }`}
+            >
+              {pot.isOwner
+                ? pot.awaitingConfirmation > 0
+                  ? `${pot.awaitingConfirmation} to confirm`
+                  : 'Owner'
+                : myStatus.text}
+            </span>
+          )}
 
           <svg
             width="18"
@@ -143,6 +182,7 @@ export default function ModePot({
                           season,
                           buyIn: Number(amount),
                           competitionType: pot.mode,
+                          competitionId: competitionId ?? null,
                           name: label,
                         },
                         'create',
@@ -162,13 +202,60 @@ export default function ModePot({
                   <Figure label="Projected" value={`$${pot.projected}`} />
                 </div>
 
+                {/* Your own half of the arrangement, before the list of
+                    everybody else's. */}
+                {!pot.isOwner && (
+                  <div
+                    className={`mb-3 flex items-center gap-3 rounded-xl border px-3.5 py-3 ${
+                      pot.me.paid
+                        ? 'border-win/40 bg-win/10'
+                        : pot.me.claimed
+                          ? 'border-live/40 bg-live/10'
+                          : 'border-brand/40 bg-brand/10'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-[13.5px] font-bold ${myStatus.tone}`}>
+                        {myStatus.text}
+                      </div>
+                      <div className="mt-0.5 text-[11px] leading-snug text-muted">
+                        {pot.me.paid
+                          ? 'Confirmed by whoever runs the pot.'
+                          : pot.me.claimed
+                            ? 'They will tick you off once it lands.'
+                            : 'Pay them however you normally do, then tap this.'}
+                      </div>
+                    </div>
+
+                    {!pot.me.paid && (
+                      <button
+                        type="button"
+                        disabled={busy !== null}
+                        onClick={() =>
+                          post({ action: 'claim', potId: pot.potId, claimed: !pot.me.claimed }, 'claim')
+                        }
+                        className={`h-9 shrink-0 rounded-xl px-3.5 text-[12px] font-bold ${
+                          pot.me.claimed ? 'border border-line bg-raised text-muted' : 'bg-brand text-brand-ink'
+                        }`}
+                      >
+                        {busy === 'claim' ? '…' : pot.me.claimed ? 'Undo' : "I've paid"}
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   {pot.members.map((member) => (
                     <div
                       key={member.userId}
                       className="flex items-center justify-between rounded-xl bg-raised px-3 py-2"
                     >
-                      <span className="text-[13px] font-semibold">{member.username}</span>
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate text-[13px] font-semibold">{member.username}</span>
+                        {member.claimed && (
+                          <span className="chip bg-live/15 text-live">Says paid</span>
+                        )}
+                      </span>
                       {pot.isOwner ? (
                         <button
                           type="button"
@@ -185,11 +272,21 @@ export default function ModePot({
                             )
                           }
                           aria-pressed={member.paid}
-                          className={`h-7 rounded-lg px-2.5 text-[10px] font-bold transition-colors ${
-                            member.paid ? 'bg-win/20 text-win' : 'bg-surface text-muted'
+                          className={`h-7 shrink-0 rounded-lg px-2.5 text-[10px] font-bold transition-colors ${
+                            member.paid
+                              ? 'bg-win/20 text-win'
+                              : member.claimed
+                                ? 'bg-live/20 text-live'
+                                : 'bg-surface text-muted'
                           }`}
                         >
-                          {busy === member.userId ? '…' : member.paid ? 'PAID' : 'MARK PAID'}
+                          {busy === member.userId
+                            ? '…'
+                            : member.paid
+                              ? 'PAID'
+                              : member.claimed
+                                ? 'CONFIRM'
+                                : 'MARK PAID'}
                         </button>
                       ) : (
                         <span
@@ -205,7 +302,7 @@ export default function ModePot({
                 <p className="mt-3 text-[11px] leading-relaxed text-muted">
                   {pot.isOwner
                     ? 'Every change records who made it and when, so there is a trail if anyone disagrees later.'
-                    : 'Only whoever started the pot can mark someone paid.'}
+                    : 'Saying you have paid does not move the total — only the pot owner can confirm it.'}
                 </p>
               </>
             )}

@@ -5,29 +5,48 @@ import { useEffect } from 'react';
 /**
  * Make the top inset trustworthy.
  *
- * iOS has a long-standing bug: with `apple-mobile-web-app-status-bar-style` set
- * to `black-translucent`, an installed PWA runs its content underneath the
- * status bar but reports `env(safe-area-inset-top)` as 0 anyway. Every heading
- * in the app then sat against the clock, and no amount of padding read from
- * env() could fix it, because env() was the thing that was wrong.
+ * Three things have to be true for a heading to clear the status bar on an
+ * installed iPhone app, and iOS gets one of them wrong.
  *
- * The status bar style is now `black`, which makes iOS reserve that strip
- * itself. This is the belt to that braces: it measures whether the viewport is
- * actually running full-bleed, and only if it is does it publish a top inset of
- * its own. The measurement is the point — a device check would guess, whereas
- * an innerHeight that reaches the full screen height means the content really
- * is under the status bar, whatever the meta tag says.
+ * `viewport-fit=cover` puts the web view edge to edge, which is what makes the
+ * app look native and is also what puts content under the clock unless it is
+ * padded. The padding is supposed to come from env(safe-area-inset-top) — but
+ * WebKit reports that as 0 in a standalone web app often enough that it cannot
+ * be relied on alone. So this measures env() directly through a probe element,
+ * and only when the probe comes back empty *and* the viewport is genuinely
+ * running full-bleed does it supply a value of its own.
  *
- * When iOS is behaving, this does nothing at all and the CSS falls through to
- * env(safe-area-inset-top).
+ * That last value used to be a flat 47px, which was right for a notch and about
+ * twelve pixels short on a Dynamic Island — enough to tuck the back button
+ * under the bottom edge of the status bar. It is picked from the screen height
+ * now, which is the only signal available that distinguishes them.
  */
+
+/** The safe inset iOS uses, by portrait screen height in CSS pixels. */
+function insetForScreen(height: number): number {
+  if (height >= 852) return 59; // Dynamic Island: 14 Pro and later
+  if (height >= 812) return 47; // Notch: X through 13, and the non-Pro 14
+  return 20; // Touch ID era, where the status bar is just a bar
+}
+
 export default function SafeArea() {
   useEffect(() => {
     const root = document.documentElement;
 
+    /** What env(safe-area-inset-top) actually resolves to, in pixels. */
+    const measureEnv = (): number => {
+      const probe = document.createElement('div');
+      probe.style.cssText =
+        'position:fixed;top:0;left:0;width:0;visibility:hidden;pointer-events:none;height:env(safe-area-inset-top)';
+      document.body.appendChild(probe);
+      const height = probe.getBoundingClientRect().height;
+      probe.remove();
+      return height;
+    };
+
     const apply = () => {
       // Only ever relevant for an installed app. In a browser tab the chrome
-      // occupies this space and innerHeight is far short of the screen anyway.
+      // occupies this space and the viewport is far shorter than the screen.
       const standalone =
         window.matchMedia('(display-mode: standalone)').matches ||
         (window.navigator as { standalone?: boolean }).standalone === true;
@@ -37,28 +56,30 @@ export default function SafeArea() {
         return;
       }
 
-      // Landscape swaps the axes and puts the insets on the sides, where this
-      // has nothing useful to say.
+      // Landscape puts the insets on the sides, where this has nothing to say.
+      if (window.innerHeight < window.innerWidth) {
+        root.style.removeProperty('--safe-top');
+        return;
+      }
+
+      // env() working is the good case: the CSS already reads it, and a value
+      // from here would only fight with it.
+      if (measureEnv() > 0) {
+        root.style.removeProperty('--safe-top');
+        return;
+      }
+
+      // env() is zero. If the viewport is also shorter than the screen then iOS
+      // reserved the strip itself and there is nothing to pad for.
       const screenHeight = Math.max(window.screen.height, window.screen.width);
-      const portrait = window.innerHeight >= window.innerWidth;
-      if (!portrait) {
+      if (window.innerHeight < screenHeight - 4) {
         root.style.removeProperty('--safe-top');
         return;
       }
 
-      // If iOS reserved the status bar, the viewport is meaningfully shorter
-      // than the screen. If it did not, they are the same and we are drawing
-      // under it.
-      const fullBleed = window.innerHeight >= screenHeight - 4;
-      if (!fullBleed) {
-        root.style.removeProperty('--safe-top');
-        return;
-      }
-
-      // 812pt is the iPhone X and everything after it — the devices with a
-      // notch or a Dynamic Island, where the reserved strip is much taller than
-      // the old 20pt status bar.
-      root.style.setProperty('--safe-top', screenHeight >= 812 ? '47px' : '20px');
+      // Edge to edge with no inset reported. This is the case the whole file
+      // exists for.
+      root.style.setProperty('--safe-top', `${insetForScreen(screenHeight)}px`);
     };
 
     apply();

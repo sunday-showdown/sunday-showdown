@@ -33,6 +33,8 @@ export interface PotMember {
   userId: string;
   username: string;
   paid: boolean;
+  /** They have said they sent it; the owner has not confirmed yet. */
+  claimed: boolean;
 }
 
 export interface PotView {
@@ -43,6 +45,10 @@ export interface PotView {
   projected: number;
   members: PotMember[];
   isOwner: boolean;
+  /** This person's own standing in the pot, which is what they came to see. */
+  me: { inPot: boolean; paid: boolean; claimed: boolean };
+  /** How many people are waiting on the owner to confirm. */
+  awaitingConfirmation: number;
 }
 
 /**
@@ -57,15 +63,21 @@ export async function loadPot(
   userId: string,
   league: { id: string; season: number },
   mode: PotMode,
+  /** For a pot that belongs to one pool rather than to the mode in general. */
+  competitionId?: string,
 ): Promise<PotView> {
+  let potQuery = db
+    .from('pots')
+    .select('id, buy_in, confirmed_pool, projected_pool, owner_id')
+    .eq('season', league.season)
+    .eq('competition_type', mode);
+
+  potQuery = competitionId
+    ? potQuery.eq('competition_id', competitionId)
+    : potQuery.eq('league_id', league.id).is('competition_id', null);
+
   const [{ data: pot }, { data: memberRows }] = await Promise.all([
-    db
-      .from('pots')
-      .select('id, buy_in, confirmed_pool, projected_pool, owner_id')
-      .eq('league_id', league.id)
-      .eq('season', league.season)
-      .eq('competition_type', mode)
-      .maybeSingle(),
+    potQuery.maybeSingle(),
     db.from('league_members').select('user_id').eq('league_id', league.id),
   ]);
 
@@ -76,22 +88,36 @@ export async function loadPot(
       ? db.from('profiles').select('user_id, username').in('user_id', memberIds)
       : Promise.resolve({ data: [] as { user_id: string; username: string }[] }),
     pot
-      ? db.from('pot_participants').select('user_id, paid').eq('pot_id', pot.id)
-      : Promise.resolve({ data: [] as { user_id: string; paid: boolean }[] }),
+      ? db.from('pot_participants').select('user_id, paid, claimed_at').eq('pot_id', pot.id)
+      : Promise.resolve({ data: [] as { user_id: string; paid: boolean; claimed_at: string | null }[] }),
   ]);
 
-  const paid = new Set(
-    (participants ?? []).filter((p) => p.paid).map((p) => p.user_id as string),
+  const entryOf = new Map(
+    ((participants ?? []) as { user_id: string; paid: boolean; claimed_at: string | null }[]).map(
+      (row) => [row.user_id, row],
+    ),
   );
 
   const members: PotMember[] = (profiles ?? [])
-    .map((profile) => ({
-      userId: profile.user_id as string,
-      username: profile.username as string,
-      paid: paid.has(profile.user_id as string),
-    }))
-    // Unpaid first: the list exists to answer "who still owes".
-    .sort((a, b) => Number(a.paid) - Number(b.paid) || a.username.localeCompare(b.username));
+    .map((profile) => {
+      const entry = entryOf.get(profile.user_id as string);
+      return {
+        userId: profile.user_id as string,
+        username: profile.username as string,
+        paid: Boolean(entry?.paid),
+        claimed: Boolean(entry?.claimed_at) && !entry?.paid,
+      };
+    })
+    // Whoever is waiting on the owner comes first, then whoever still owes, then
+    // the people already settled. The list exists to answer "what do I do next".
+    .sort(
+      (a, b) =>
+        Number(b.claimed) - Number(a.claimed) ||
+        Number(a.paid) - Number(b.paid) ||
+        a.username.localeCompare(b.username),
+    );
+
+  const mine = entryOf.get(userId);
 
   return {
     potId: (pot?.id as string) ?? null,
@@ -101,5 +127,11 @@ export async function loadPot(
     projected: Math.round(Number(pot?.projected_pool ?? 0)),
     members,
     isOwner: pot ? pot.owner_id === userId : false,
+    me: {
+      inPot: mine !== undefined,
+      paid: Boolean(mine?.paid),
+      claimed: Boolean(mine?.claimed_at) && !mine?.paid,
+    },
+    awaitingConfirmation: members.filter((member) => member.claimed).length,
   };
 }

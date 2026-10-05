@@ -81,36 +81,32 @@ export async function POST(request: Request) {
       return Response.json({ error: 'league and name are required' }, { status: 400 });
     }
 
-    // Discord's own shape: lowercase, hyphens, no spaces. Doing it here rather
-    // than asking people to type it means two channels cannot differ only by
-    // capitalisation.
-    const slug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 40);
+    // The name somebody typed, tidied rather than mangled. It used to be
+    // slugged to lowercase-with-hyphens, which only reads correctly with a "#"
+    // in front of it and looked like a typo without one.
+    const clean = name.replace(/\s+/g, ' ').trim().slice(0, 40);
 
-    if (slug.length < 2) {
+    if (clean.length < 2) {
       return Response.json({ error: 'Give the channel a name.' }, { status: 400 });
     }
 
-    const { data: existing } = await supabase
+    // Case-insensitive, matching the unique index: "Injuries" and "injuries"
+    // are the same room, and a league with both cannot tell them apart.
+    const { data: siblings } = await supabase
       .from('channels')
-      .select('id')
-      .eq('league_id', leagueId)
-      .eq('name', slug)
-      .maybeSingle();
+      .select('id, name')
+      .eq('league_id', leagueId);
 
+    const existing = (siblings ?? []).find(
+      (row) => (row.name as string).toLowerCase() === clean.toLowerCase(),
+    );
     if (existing) {
       return Response.json({ ok: true, channelId: existing.id as string, existed: true });
     }
 
-    const { count } = await supabase
-      .from('channels')
-      .select('id', { count: 'exact', head: true })
-      .eq('league_id', leagueId);
+    const count = (siblings ?? []).length;
 
-    if ((count ?? 0) >= 20) {
+    if (count >= 20) {
       return Response.json({ error: 'That league has enough channels.' }, { status: 400 });
     }
 
@@ -119,10 +115,10 @@ export async function POST(request: Request) {
       .insert({
         kind: 'league',
         league_id: leagueId,
-        name: slug,
+        name: clean,
         topic: typeof topic === 'string' && topic.trim() ? topic.trim().slice(0, 200) : null,
         emoji: '💬',
-        position: (count ?? 0) + 1,
+        position: count + 1,
         created_by: user.id,
       })
       .select('id')

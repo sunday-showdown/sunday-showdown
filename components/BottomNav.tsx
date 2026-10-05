@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 // Five tabs is the practical ceiling on a phone. The extra game modes live on
 // Home rather than crowding this, so the bar stays tappable.
@@ -23,25 +24,33 @@ export default function BottomNav() {
   // is two rows of chrome competing for the same thumb.
   const inRoom = pathname.startsWith('/feed/c/');
 
-  useEffect(() => {
-    if (inRoom) return;
-
-    // Fetched on navigation rather than polled. A badge that is a few seconds
-    // stale costs nothing; a timer running all day on a phone does.
-    let cancelled = false;
+  const refresh = useCallback(() => {
     fetch('/api/channels')
       .then((response) => (response.ok ? response.json() : { unread: 0 }))
-      .then((payload: { unread?: number }) => {
-        if (!cancelled) setUnread(payload.unread ?? 0);
-      })
+      .then((payload: { unread?: number }) => setUnread(payload.unread ?? 0))
       .catch(() => {
         // An offline badge is simply absent.
       });
+  }, []);
+
+  // On navigation, and again whenever a message lands anywhere. Realtime rather
+  // than a timer: a badge that only updates when you happen to change screens
+  // is the kind of thing people stop trusting, and a poll running all day is a
+  // battery cost for a number that is usually zero.
+  useEffect(() => {
+    if (inRoom) return;
+    refresh();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel('nav-unread')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, refresh)
+      .subscribe();
 
     return () => {
-      cancelled = true;
+      void supabase.removeChannel(channel);
     };
-  }, [pathname, inRoom]);
+  }, [pathname, inRoom, refresh]);
 
   if (inRoom) return null;
 
