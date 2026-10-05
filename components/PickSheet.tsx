@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import PickCard, { type Game, type GameOdds, type Selection } from './PickCard';
 import { isGamePickable, isCardLocked, timeUntilLock } from '@/lib/contest';
 import { formatCountdown } from '@/lib/format';
-import { MARKET_POINTS, type PickemMarket } from '@/lib/types';
+import type { PickemMarket } from '@/lib/types';
+import { pointsForOdds } from '@/lib/odds';
 
 export interface ExistingPick {
   game_id: string;
@@ -92,7 +93,11 @@ export default function PickSheet({
   const totalSelected = games.filter((g) => current(g.id) !== null).length;
   const potentialPoints = games.reduce((sum, game) => {
     const choice = current(game.id);
-    return choice ? sum + MARKET_POINTS[choice.marketType] : sum;
+    if (!choice) return sum;
+    const row = (oddsByGame[game.id] ?? []).find(
+      (o) => o.market_type === choice.marketType && o.selection === choice.selection,
+    );
+    return sum + pointsForOdds(row?.american_odds ?? null);
   }, 0);
 
   const save = async () => {

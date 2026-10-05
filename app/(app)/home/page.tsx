@@ -4,7 +4,7 @@ import { loadMyLeagues, loadWeek } from '@/lib/week';
 import { loadSeasonStandings } from '@/lib/standings';
 import { isCardLocked, timeUntilLock } from '@/lib/contest';
 import { formatCountdown, formatKickoff, formatSpread } from '@/lib/format';
-import { MARKET_POINTS } from '@/lib/types';
+import { pointsForOdds } from '@/lib/odds';
 import EmptyState from '@/components/EmptyState';
 
 export const metadata = { title: 'Home' };
@@ -56,10 +56,14 @@ export default async function HomePage() {
   const liveGames = week.games.filter((g) => g.status === 'in_progress');
   const nextGame = week.games.find((g) => g.status === 'scheduled');
 
-  const pickedPoints = week.myPicks.reduce(
-    (sum, pick) => sum + (MARKET_POINTS[pick.market_type] ?? 0),
-    0,
-  );
+  // Each pick is worth its own price, so the total has to be read from the
+  // odds rather than a per-market constant.
+  const oddsFor = (pick: { game_id: string; market_type: string; selection: string }) =>
+    (week.oddsByGame[pick.game_id] ?? []).find(
+      (o) => o.market_type === pick.market_type && o.selection === pick.selection,
+    )?.american_odds ?? null;
+
+  const pickedPoints = week.myPicks.reduce((sum, pick) => sum + pointsForOdds(oddsFor(pick)), 0);
 
   return (
     <main className="pb-4">
@@ -185,7 +189,8 @@ export default async function HomePage() {
                 <div key={pick.game_id} className="card flex items-center justify-between px-4 py-3">
                   <div className="min-w-0">
                     <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-                      {pick.market_type} · +{MARKET_POINTS[pick.market_type]}
+                      {pick.market_type} ·{' '}
+                      <span className="text-brand">+{pointsForOdds(line?.american_odds ?? null)}</span>
                     </div>
                     <div className="mt-0.5 truncate text-sm font-semibold">
                       {describePick(pick, game, line?.line ?? null)}

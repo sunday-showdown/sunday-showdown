@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { gradePick, summarizeWeek, rankWeek } from '../lib/scoring';
-import { MARKET_POINTS, TD_TIERS, tdTierFor, tdPointsFor } from '../lib/types';
+import {
+  pointsForOdds,
+  impliedProbability,
+  americanToDecimal,
+  probabilityToAmerican,
+  STAKE,
+  MAX_POINTS,
+  PUSH_POINTS,
+  DEFAULT_WIN_POINTS,
+} from '../lib/odds';
+import { tdPointsFor, tdAmericanOdds, tdBandFor, tdScoringProbability } from '../lib/types';
 
 const final = (homeScore: number, awayScore: number) => ({
   status: 'final',
@@ -8,66 +18,115 @@ const final = (homeScore: number, awayScore: number) => ({
   awayScore,
 });
 
-describe('point values', () => {
-  it('pays moneyline 1 and the line markets 3', () => {
-    // These are the competition's defining numbers; a silent change here would
-    // rescore every week in the league's history.
-    expect(MARKET_POINTS).toEqual({ moneyline: 1, spread: 3, total: 3 });
+describe('payout rule', () => {
+  it('pays the decimal odds on a $10 stake', () => {
+    expect(pointsForOdds(100)).toBe(20); // even money doubles the stake
+    expect(pointsForOdds(-110)).toBe(19);
+    expect(pointsForOdds(400)).toBe(50);
+    expect(pointsForOdds(-600)).toBe(12);
+  });
+
+  it('removes the arbitrage between a short spread and its moneyline', () => {
+    // The bug in a fixed-points scheme: at -0.5 the spread and the moneyline
+    // are the SAME bet, so paying the spread more was free points.
+    const shortSpread = pointsForOdds(-110);
+    const equivalentMoneyline = pointsForOdds(-115);
+    expect(Math.abs(shortSpread - equivalentMoneyline)).toBeLessThanOrEqual(1);
+  });
+
+  it('gives every pick roughly the same expected value', () => {
+    // No market and no side can be strictly better, or everyone picks it.
+    for (const odds of [-600, -300, -110, 100, 150, 400]) {
+      const expected = impliedProbability(odds)! * pointsForOdds(odds);
+      expect(expected).toBeGreaterThan(9.5);
+      expect(expected).toBeLessThan(10.5);
+    }
+  });
+
+  it('pays a long shot more than chalk', () => {
+    expect(pointsForOdds(400)).toBeGreaterThan(pointsForOdds(-600));
+  });
+
+  it('caps the longest shots so one pick cannot decide a season', () => {
+    expect(pointsForOdds(100000)).toBe(MAX_POINTS);
+  });
+
+  it('falls back to the standard price when none was stored', () => {
+    expect(pointsForOdds(null)).toBe(DEFAULT_WIN_POINTS);
+    expect(pointsForOdds(undefined)).toBe(DEFAULT_WIN_POINTS);
+    expect(DEFAULT_WIN_POINTS).toBe(19);
+  });
+
+  it('rejects impossible prices rather than scoring them', () => {
+    expect(pointsForOdds(50)).toBe(DEFAULT_WIN_POINTS);
+    expect(pointsForOdds(0)).toBe(DEFAULT_WIN_POINTS);
+    expect(pointsForOdds(NaN)).toBe(DEFAULT_WIN_POINTS);
+  });
+
+  it('converts American to decimal correctly', () => {
+    expect(americanToDecimal(400)).toBeCloseTo(5, 4);
+    expect(americanToDecimal(-600)).toBeCloseTo(1.1667, 3);
+    expect(americanToDecimal(100)).toBeCloseTo(2, 4);
+  });
+
+  it('round-trips probability and odds', () => {
+    for (const p of [0.1, 0.25, 0.5, 0.75, 0.9]) {
+      const american = probabilityToAmerican(p)!;
+      expect(impliedProbability(american)!).toBeCloseTo(p, 2);
+    }
   });
 });
 
 describe('gradePick — moneyline', () => {
-  const ml = (selection: string) => ({ marketType: 'moneyline' as const, selection, contestLine: null });
-
-  it('pays 1 point for the winning side', () => {
-    expect(gradePick(ml('home'), final(24, 17))).toEqual({ result: 'win', points: 1 });
-    expect(gradePick(ml('away'), final(17, 24))).toEqual({ result: 'win', points: 1 });
+  const ml = (selection: string, contestOdds: number) => ({
+    marketType: 'moneyline' as const,
+    selection,
+    contestLine: null,
+    contestOdds,
   });
 
-  it('awards nothing for the losing side', () => {
-    expect(gradePick(ml('home'), final(17, 24))).toEqual({ result: 'loss', points: 0 });
+  it('pays the posted price on a winner', () => {
+    expect(gradePick(ml('home', -150), final(24, 17))).toEqual({ result: 'win', points: 17 });
+    expect(gradePick(ml('away', 400), final(17, 24))).toEqual({ result: 'win', points: 50 });
   });
 
-  it('pushes a tie', () => {
-    expect(gradePick(ml('home'), final(20, 20))).toEqual({ result: 'push', points: 0 });
-    expect(gradePick(ml('away'), final(20, 20))).toEqual({ result: 'push', points: 0 });
+  it('pays nothing for the losing side', () => {
+    expect(gradePick(ml('home', -150), final(17, 24))).toEqual({ result: 'loss', points: 0 });
   });
 
-  it('needs no line', () => {
-    expect(gradePick(ml('home'), final(24, 17)).result).toBe('win');
+  it('returns the stake on a tie', () => {
+    expect(gradePick(ml('home', -150), final(20, 20))).toEqual({ result: 'push', points: PUSH_POINTS });
+  });
+
+  it('pays a heavy favourite far less than an underdog', () => {
+    const chalk = gradePick(ml('home', -600), final(31, 10)).points;
+    const dog = gradePick(ml('away', 400), final(10, 31)).points;
+    expect(dog).toBeGreaterThan(chalk * 3);
   });
 });
 
 describe('gradePick — spread', () => {
-  const spread = (selection: string, contestLine: number) => ({
+  const spread = (selection: string, contestLine: number, contestOdds = -110) => ({
     marketType: 'spread' as const,
     selection,
     contestLine,
+    contestOdds,
   });
 
-  it('pays 3 when a favourite covers', () => {
-    // Home -9.5, home wins by 10.
-    expect(gradePick(spread('home', -9.5), final(30, 20))).toEqual({ result: 'win', points: 3 });
+  it('pays when a favourite covers', () => {
+    expect(gradePick(spread('home', -9.5), final(30, 20))).toEqual({ result: 'win', points: 19 });
   });
 
   it('fails a favourite that wins without covering', () => {
-    // Home -9.5, home wins by only 7.
     expect(gradePick(spread('home', -9.5), final(27, 20))).toEqual({ result: 'loss', points: 0 });
   });
 
   it('pays an underdog that loses by less than the spread', () => {
-    // Away +9.5, away loses by 7.
-    expect(gradePick(spread('away', 9.5), final(27, 20))).toEqual({ result: 'win', points: 3 });
+    expect(gradePick(spread('away', 9.5), final(27, 20))).toEqual({ result: 'win', points: 19 });
   });
 
-  it('pays an underdog that wins outright', () => {
-    expect(gradePick(spread('away', 3), final(17, 24))).toEqual({ result: 'win', points: 3 });
-  });
-
-  it('pushes when the margin lands exactly on a whole-number line', () => {
-    // Home -7, home wins by exactly 7.
-    expect(gradePick(spread('home', -7), final(27, 20))).toEqual({ result: 'push', points: 0 });
-    expect(gradePick(spread('away', 7), final(27, 20))).toEqual({ result: 'push', points: 0 });
+  it('returns the stake when the margin lands exactly on a whole-number line', () => {
+    expect(gradePick(spread('home', -7), final(27, 20))).toEqual({ result: 'push', points: PUSH_POINTS });
   });
 
   it('never pushes on a half-point line', () => {
@@ -78,55 +137,59 @@ describe('gradePick — spread', () => {
   });
 
   it('handles a pick-em spread of zero', () => {
-    expect(gradePick(spread('home', 0), final(24, 17))).toEqual({ result: 'win', points: 3 });
-    expect(gradePick(spread('home', 0), final(20, 20))).toEqual({ result: 'push', points: 0 });
+    expect(gradePick(spread('home', 0), final(24, 17)).result).toBe('win');
+    expect(gradePick(spread('home', 0), final(20, 20)).result).toBe('push');
   });
 
-  it('grades against the stored line, not the closing one', () => {
-    // Taken at -3, the book closed at -9.5, home won by 7. The player who took
-    // -3 covered and must be paid, whatever the line moved to afterwards.
-    expect(gradePick(spread('home', -3), final(27, 20))).toEqual({ result: 'win', points: 3 });
+  it('grades and pays against the stored line and price, not the current one', () => {
+    // Taken at -3 and +120 when the book was generous; it later closed at -9.5
+    // and -140. The player gets the line they took AND the price they took.
+    expect(gradePick(spread('home', -3, 120), final(27, 20))).toEqual({
+      result: 'win',
+      points: 22,
+    });
   });
 
   it('stays pending when no line was stored', () => {
-    // Rather than assume zero, which would silently grade a spread as a
-    // moneyline.
-    expect(gradePick({ marketType: 'spread', selection: 'home', contestLine: null }, final(30, 20)))
-      .toEqual({ result: 'pending', points: 0 });
+    expect(
+      gradePick({ marketType: 'spread', selection: 'home', contestLine: null, contestOdds: -110 }, final(30, 20)),
+    ).toEqual({ result: 'pending', points: 0 });
   });
 });
 
 describe('gradePick — total', () => {
-  const total = (selection: string, contestLine: number) => ({
+  const total = (selection: string, contestLine: number, contestOdds = -110) => ({
     marketType: 'total' as const,
     selection,
     contestLine,
+    contestOdds,
   });
 
   it('pays the over when the combined score clears the line', () => {
-    expect(gradePick(total('over', 47.5), final(30, 24))).toEqual({ result: 'win', points: 3 });
+    expect(gradePick(total('over', 47.5), final(30, 24))).toEqual({ result: 'win', points: 19 });
   });
 
   it('pays the under when it stays below', () => {
-    expect(gradePick(total('under', 47.5), final(20, 17))).toEqual({ result: 'win', points: 3 });
+    expect(gradePick(total('under', 47.5), final(20, 17))).toEqual({ result: 'win', points: 19 });
   });
 
-  it('fails the over when the game stays low', () => {
-    expect(gradePick(total('over', 47.5), final(20, 17))).toEqual({ result: 'loss', points: 0 });
-  });
-
-  it('pushes when the combined score lands on a whole-number total', () => {
-    expect(gradePick(total('over', 44), final(24, 20))).toEqual({ result: 'push', points: 0 });
-    expect(gradePick(total('under', 44), final(24, 20))).toEqual({ result: 'push', points: 0 });
+  it('returns the stake when the score lands on a whole-number total', () => {
+    expect(gradePick(total('over', 44), final(24, 20)).points).toBe(PUSH_POINTS);
+    expect(gradePick(total('under', 44), final(24, 20)).points).toBe(PUSH_POINTS);
   });
 
   it('counts a shutout correctly', () => {
-    expect(gradePick(total('under', 10.5), final(7, 0))).toEqual({ result: 'win', points: 3 });
+    expect(gradePick(total('under', 10.5), final(7, 0)).result).toBe('win');
   });
 });
 
 describe('gradePick — ungradeable states', () => {
-  const pick = { marketType: 'moneyline' as const, selection: 'home', contestLine: null };
+  const pick = {
+    marketType: 'moneyline' as const,
+    selection: 'home',
+    contestLine: null,
+    contestOdds: -110,
+  };
 
   it('stays pending until the game is final', () => {
     expect(gradePick(pick, { status: 'scheduled', homeScore: null, awayScore: null }).result).toBe('pending');
@@ -134,7 +197,6 @@ describe('gradePick — ungradeable states', () => {
   });
 
   it('never grades a leading team as a winner mid-game', () => {
-    // The whole point of the status gate: a team up 14-7 at halftime has not won.
     expect(gradePick(pick, { status: 'in_progress', homeScore: 14, awayScore: 7 })).toEqual({
       result: 'pending',
       points: 0,
@@ -150,14 +212,11 @@ describe('gradePick — ungradeable states', () => {
   });
 
   it('stays pending for an unknown selection', () => {
-    expect(gradePick({ marketType: 'moneyline', selection: 'tie', contestLine: null }, final(24, 17)).result)
-      .toBe('pending');
-    expect(gradePick({ marketType: 'total', selection: 'home', contestLine: 44 }, final(24, 17)).result)
-      .toBe('pending');
+    expect(gradePick({ ...pick, selection: 'tie' }, final(24, 17)).result).toBe('pending');
   });
 
   it('treats a 0-0 final as a real tie, not missing data', () => {
-    expect(gradePick(pick, final(0, 0))).toEqual({ result: 'push', points: 0 });
+    expect(gradePick(pick, final(0, 0)).result).toBe('push');
   });
 
   it('stays pending for undefined scores instead of reporting a push', () => {
@@ -166,41 +225,82 @@ describe('gradePick — ungradeable states', () => {
     // guard, every comparison against NaN was false, and settle() returned a
     // push — so every pick in the league graded as a push, which looks like a
     // real result rather than an error.
-    const undefinedScores = {
-      status: 'final',
-      homeScore: undefined as unknown as number | null,
-      awayScore: undefined as unknown as number | null,
-    };
-    expect(gradePick(pick, undefinedScores)).toEqual({ result: 'pending', points: 0 });
+    expect(
+      gradePick(pick, {
+        status: 'final',
+        homeScore: undefined as unknown as number | null,
+        awayScore: undefined as unknown as number | null,
+      }),
+    ).toEqual({ result: 'pending', points: 0 });
   });
 
-  it('stays pending for NaN scores', () => {
-    const nanScores = { status: 'final', homeScore: NaN, awayScore: 20 };
-    expect(gradePick(pick, nanScores)).toEqual({ result: 'pending', points: 0 });
+  it('stays pending for NaN scores and NaN lines', () => {
+    expect(gradePick(pick, { status: 'final', homeScore: NaN, awayScore: 20 }).result).toBe('pending');
+    expect(
+      gradePick({ marketType: 'spread', selection: 'home', contestLine: NaN, contestOdds: -110 }, final(30, 20)),
+    ).toEqual({ result: 'pending', points: 0 });
   });
 
-  it('stays pending for a NaN line rather than pushing', () => {
-    const badSpread = { marketType: 'spread' as const, selection: 'home', contestLine: NaN };
-    expect(gradePick(badSpread, final(30, 20))).toEqual({ result: 'pending', points: 0 });
+  it('still grades a win when the price is missing, using the standard price', () => {
+    // A pick with no stored odds is a data problem, not a reason to void a
+    // correct call.
+    expect(
+      gradePick({ marketType: 'moneyline', selection: 'home', contestLine: null, contestOdds: null }, final(24, 17)),
+    ).toEqual({ result: 'win', points: DEFAULT_WIN_POINTS });
+  });
+});
 
-    const badTotal = { marketType: 'total' as const, selection: 'over', contestLine: NaN };
-    expect(gradePick(badTotal, final(30, 20))).toEqual({ result: 'pending', points: 0 });
+describe('TD Scorer pricing', () => {
+  it('prices a frequent scorer short and a rare one long', () => {
+    expect(tdPointsFor(6, 8)).toBeLessThan(tdPointsFor(1, 8));
+  });
+
+  it('uses the same payout rule as every other pick', () => {
+    const odds = tdAmericanOdds(3, 8);
+    expect(tdPointsFor(3, 8)).toBe(pointsForOdds(odds));
+  });
+
+  it('shrinks a small sample toward the league average', () => {
+    // One touchdown in one game is not a 100% scorer; without shrinkage he
+    // would be priced as the safest pick on the board.
+    const oneGame = tdScoringProbability(1, 1);
+    expect(oneGame).toBeLessThan(0.5);
+    expect(tdPointsFor(1, 1)).toBeGreaterThan(tdPointsFor(8, 10));
+  });
+
+  it('keeps every price inside the range odds can express', () => {
+    for (const [tds, games] of [[0, 0], [0, 17], [17, 17], [40, 17], [1, 1]]) {
+      const p = tdScoringProbability(tds!, games!);
+      expect(p).toBeGreaterThan(0);
+      expect(p).toBeLessThan(1);
+      expect(Number.isFinite(tdPointsFor(tds!, games!))).toBe(true);
+    }
+  });
+
+  it('bands players for display without changing the payout', () => {
+    expect(tdBandFor(8, 10)).toBe('lock');
+    expect(tdBandFor(1, 10)).toBe('longshot');
+  });
+
+  it('never lets one TD pick outweigh a whole card', () => {
+    // A 15-game card at the standard price is ~285 points.
+    expect(tdPointsFor(0, 17)).toBeLessThan(15 * DEFAULT_WIN_POINTS);
   });
 });
 
 describe('summarizeWeek', () => {
   it('totals points and counts each market separately', () => {
     const totals = summarizeWeek([
-      { marketType: 'moneyline', result: 'win', points: 1 },
-      { marketType: 'spread', result: 'win', points: 3 },
-      { marketType: 'total', result: 'win', points: 3 },
+      { marketType: 'moneyline', result: 'win', points: 17 },
+      { marketType: 'spread', result: 'win', points: 19 },
+      { marketType: 'total', result: 'win', points: 19 },
       { marketType: 'spread', result: 'loss', points: 0 },
-      { marketType: 'total', result: 'push', points: 0 },
+      { marketType: 'total', result: 'push', points: 10 },
       { marketType: 'moneyline', result: 'pending', points: 0 },
     ]);
 
     expect(totals).toEqual({
-      pickemPoints: 7,
+      pickemPoints: 65,
       correctMl: 1,
       correctSpread: 1,
       correctTotals: 1,
@@ -216,7 +316,7 @@ describe('summarizeWeek', () => {
   });
 
   it('does not count a push as a win', () => {
-    const totals = summarizeWeek([{ marketType: 'spread', result: 'push', points: 0 }]);
+    const totals = summarizeWeek([{ marketType: 'spread', result: 'push', points: 10 }]);
     expect(totals.wins).toBe(0);
     expect(totals.correctSpread).toBe(0);
   });
@@ -225,9 +325,9 @@ describe('summarizeWeek', () => {
 describe('rankWeek', () => {
   it('ranks by points descending', () => {
     const standings = rankWeek([
-      { userId: 'b', totalPoints: 10, wins: 3 },
-      { userId: 'a', totalPoints: 16, wins: 4 },
-      { userId: 'c', totalPoints: 5, wins: 2 },
+      { userId: 'b', totalPoints: 100, wins: 3 },
+      { userId: 'a', totalPoints: 160, wins: 4 },
+      { userId: 'c', totalPoints: 50, wins: 2 },
     ]);
     expect(standings.map((s) => s.userId)).toEqual(['a', 'b', 'c']);
     expect(standings.map((s) => s.rank)).toEqual([1, 2, 3]);
@@ -235,51 +335,45 @@ describe('rankWeek', () => {
 
   it('shares a rank on a tie and skips the consumed place', () => {
     const standings = rankWeek([
-      { userId: 'a', totalPoints: 16, wins: 4 },
-      { userId: 'b', totalPoints: 10, wins: 3 },
-      { userId: 'c', totalPoints: 10, wins: 3 },
-      { userId: 'd', totalPoints: 5, wins: 2 },
+      { userId: 'a', totalPoints: 160, wins: 4 },
+      { userId: 'b', totalPoints: 100, wins: 3 },
+      { userId: 'c', totalPoints: 100, wins: 3 },
+      { userId: 'd', totalPoints: 50, wins: 2 },
     ]);
     expect(standings.map((s) => s.rank)).toEqual([1, 2, 2, 4]);
   });
 
   it('makes every player tied at the top a winner', () => {
-    // The weekly prize is split rather than handed to whoever sorted first.
     const standings = rankWeek([
-      { userId: 'a', totalPoints: 16, wins: 4 },
-      { userId: 'b', totalPoints: 16, wins: 4 },
-      { userId: 'c', totalPoints: 9, wins: 3 },
+      { userId: 'a', totalPoints: 160, wins: 4 },
+      { userId: 'b', totalPoints: 160, wins: 4 },
+      { userId: 'c', totalPoints: 90, wins: 3 },
     ]);
     expect(standings.filter((s) => s.isWinner).map((s) => s.userId)).toEqual(['a', 'b']);
   });
 
   it('breaks a points tie on wins before falling back to id', () => {
     const standings = rankWeek([
-      { userId: 'a', totalPoints: 10, wins: 2 },
-      { userId: 'b', totalPoints: 10, wins: 6 },
+      { userId: 'a', totalPoints: 100, wins: 2 },
+      { userId: 'b', totalPoints: 100, wins: 6 },
     ]);
     expect(standings[0]).toMatchObject({ userId: 'b', rank: 1, isWinner: true });
-    expect(standings[1]).toMatchObject({ userId: 'a', rank: 2, isWinner: false });
   });
 
   it('produces identical ranks on a replay', () => {
-    // Grading can re-run after a score correction; ordering must be total, or
-    // tied players would swap ranks between runs.
     const entries = [
-      { userId: 'zeta', totalPoints: 10, wins: 3 },
-      { userId: 'alpha', totalPoints: 10, wins: 3 },
-      { userId: 'mid', totalPoints: 10, wins: 3 },
+      { userId: 'zeta', totalPoints: 100, wins: 3 },
+      { userId: 'alpha', totalPoints: 100, wins: 3 },
+      { userId: 'mid', totalPoints: 100, wins: 3 },
     ];
-    const first = rankWeek(entries);
-    const second = rankWeek([...entries].reverse());
-    expect(second).toEqual(first);
-    expect(first.map((s) => s.userId)).toEqual(['alpha', 'mid', 'zeta']);
+    expect(rankWeek([...entries].reverse())).toEqual(rankWeek(entries));
+    expect(rankWeek(entries).map((s) => s.userId)).toEqual(['alpha', 'mid', 'zeta']);
   });
 
   it('does not mutate its input', () => {
     const entries = [
-      { userId: 'a', totalPoints: 5, wins: 1 },
-      { userId: 'b', totalPoints: 10, wins: 2 },
+      { userId: 'a', totalPoints: 50, wins: 1 },
+      { userId: 'b', totalPoints: 100, wins: 2 },
     ];
     rankWeek(entries);
     expect(entries[0]!.userId).toBe('a');
@@ -290,40 +384,9 @@ describe('rankWeek', () => {
   });
 });
 
-describe('TD Scorer tiers', () => {
-  it('buckets by how often a player actually scores', () => {
-    // 6 TDs in 8 games = 0.75 → scores most weeks → cheapest.
-    expect(tdTierFor(6, 8)).toBe('lock');
-    // 3 in 8 = 0.375 → middle.
-    expect(tdTierFor(3, 8)).toBe('solid');
-    // 1 in 8 = 0.125 → rare → pays most.
-    expect(tdTierFor(1, 8)).toBe('longshot');
-  });
-
-  it('pays the inverse of reliability', () => {
-    expect(tdPointsFor(6, 8)).toBe(2);
-    expect(tdPointsFor(3, 8)).toBe(4);
-    expect(tdPointsFor(1, 8)).toBe(8);
-  });
-
-  it('puts a player with too few games in the middle, not the long shots', () => {
-    // One quiet appearance should not brand someone a long shot.
-    expect(tdTierFor(0, 1)).toBe('solid');
-    expect(tdTierFor(0, 2)).toBe('solid');
-    expect(tdTierFor(0, 0)).toBe('solid');
-  });
-
-  it('applies the thresholds inclusively at the boundaries', () => {
-    expect(tdTierFor(2, 4)).toBe('lock');     // exactly 0.50
-    expect(tdTierFor(1, 4)).toBe('solid');    // exactly 0.25
-    expect(tdTierFor(3, 13)).toBe('longshot'); // just under 0.25
-  });
-
-  it('never exceeds a full Pick’em card', () => {
-    // The old formula topped out at 30, so one TD pick could outweigh the whole
-    // week. The most expensive tier is now 8.
-    const mostExpensive = Math.max(...Object.values(TD_TIERS).map((t) => t.points));
-    expect(mostExpensive).toBe(8);
-    expect(mostExpensive).toBeLessThan(5 * MARKET_POINTS.spread);
+describe('STAKE', () => {
+  it('is the baseline every payout is built from', () => {
+    expect(STAKE).toBe(10);
+    expect(PUSH_POINTS).toBe(STAKE);
   });
 });

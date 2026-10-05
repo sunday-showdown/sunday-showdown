@@ -32,6 +32,7 @@ interface PickRow {
   market_type: PickemMarket;
   selection: string;
   contest_line: number | null;
+  contest_odds: number | null;
   result: PickResult;
   points: number;
 }
@@ -66,7 +67,7 @@ export async function gradeWeek(
   const { data: picks, error: picksError } = await db
     .from('picks')
     .select(
-      'id, user_id, league_id, challenge_id, game_id, market_type, selection, contest_line, result, points',
+      'id, user_id, league_id, challenge_id, game_id, market_type, selection, contest_line, contest_odds, result, points',
     )
     .eq('season', season)
     .eq('week', week)
@@ -101,6 +102,7 @@ export async function gradeWeek(
         marketType: pick.market_type,
         selection: pick.selection,
         contestLine: pick.contest_line === null ? null : Number(pick.contest_line),
+        contestOdds: pick.contest_odds === null ? null : Number(pick.contest_odds),
       },
       // Mapped explicitly: the database row is snake_case and GradeableGame is
       // camelCase. Passing the row straight through left the scores undefined,

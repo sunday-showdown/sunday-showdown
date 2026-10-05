@@ -36,22 +36,28 @@ export default async function LandingPage() {
         </p>
       </section>
 
-      <section className="mt-14 space-y-3">
-        <Rule
-          points="+1"
-          title="Moneyline"
-          body="Just pick the winner. Safe, and priced like it."
-        />
-        <Rule
-          points="+3"
-          title="Spread"
-          body="Take the points or give them. Three times a moneyline."
-        />
-        <Rule
-          points="+3"
-          title="Over / Under"
-          body="Call the combined score. Same reward, different read."
-        />
+      <section className="mt-14">
+        <div className="card p-5">
+          <h2 className="font-display text-lg font-bold">
+            Every pick is a <span className="text-brand">$10 bet</span>
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            You score what it pays. Take a heavy favourite and you bank a few
+            points. Take a long shot and it&apos;s worth a lot more — if it lands.
+          </p>
+
+          <div className="mt-4 space-y-2">
+            <Payout odds="−600" pays="+12" label="Heavy favourite" />
+            <Payout odds="−110" pays="+19" label="Spread or total" />
+            <Payout odds="+400" pays="+50" label="Big underdog" />
+          </div>
+
+          <p className="mt-4 text-xs leading-relaxed text-muted">
+            No pick is a free ride and none is a trap — every option is worth
+            about the same on average. Points come from being right, not from
+            working out which button is worth more.
+          </p>
+        </div>
       </section>
 
       <section className="card mt-10 p-5">
@@ -85,16 +91,14 @@ export default async function LandingPage() {
   );
 }
 
-function Rule({ points, title, body }: { points: string; title: string; body: string }) {
+function Payout({ odds, pays, label }: { odds: string; pays: string; label: string }) {
   return (
-    <div className="card flex items-start gap-4 p-4">
-      <span className="font-display shrink-0 text-xl font-extrabold tabnum text-brand">
-        {points}
+    <div className="flex items-center justify-between rounded-xl bg-raised px-4 py-2.5">
+      <span className="text-sm text-muted">
+        <span className="tabnum font-semibold text-ink">{odds}</span>
+        <span className="ml-2">{label}</span>
       </span>
-      <div>
-        <div className="text-sm font-semibold">{title}</div>
-        <div className="mt-0.5 text-sm leading-relaxed text-muted">{body}</div>
-      </div>
+      <span className="font-display text-lg font-extrabold tabnum text-brand">{pays}</span>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { MARKET_POINTS, type PickemMarket } from '@/lib/types';
+import { MARKET_LABEL, type PickemMarket } from '@/lib/types';
+import { pointsForOdds } from '@/lib/odds';
 import { formatOdds, formatSpread, formatTotal, formatKickoff } from '@/lib/format';
 
 export interface GameOdds {
@@ -35,12 +36,6 @@ interface Props {
   pickable: boolean;
   onSelect: (choice: Selection | null) => void;
 }
-
-const MARKET_LABEL: Record<PickemMarket, string> = {
-  moneyline: 'Moneyline',
-  spread: 'Spread',
-  total: 'Total',
-};
 
 export default function PickCard({
   game,
@@ -91,9 +86,7 @@ export default function PickCard({
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
                   {MARKET_LABEL[market]}
                 </span>
-                <span className="text-[10px] font-bold text-brand">
-                  +{MARKET_POINTS[market]}
-                </span>
+                
               </div>
 
               <div className="grid flex-1 grid-cols-2 gap-2">
@@ -102,7 +95,8 @@ export default function PickCard({
                   const isSelected =
                     selected?.marketType === market && selected?.selection === side;
                   const label = optionLabel(market, side, game, row);
-                  const price = row ? formatOdds(row.american_odds) : '—';
+                  const price = row ? formatOdds(row.american_odds) : null;
+                  const pays = row ? pointsForOdds(row.american_odds) : null;
                   const available = Boolean(row) && pickable;
 
                   return (
@@ -122,11 +116,18 @@ export default function PickCard({
                     >
                       <span className="tabnum leading-tight">{label}</span>
                       <span
-                        className={`text-[10px] font-medium leading-tight tabnum ${
-                          isSelected ? 'text-brand-ink/70' : 'text-muted'
+                        className={`flex items-center gap-1 text-[10px] font-medium leading-tight tabnum ${
+                          isSelected ? 'text-brand-ink/75' : 'text-muted'
                         }`}
                       >
-                        {price}
+                        {price ?? '—'}
+                        {pays !== null && (
+                          // What it pays is the number that actually matters,
+                          // so it gets the emphasis and the price is context.
+                          <span className={isSelected ? 'font-bold' : 'font-bold text-brand'}>
+                            +{pays}
+                          </span>
+                        )}
                       </span>
                     </button>
                   );

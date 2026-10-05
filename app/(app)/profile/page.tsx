@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues } from '@/lib/week';
 import { formatRecord } from '@/lib/format';
-import { MARKET_POINTS } from '@/lib/types';
 import SignOutButton from '@/components/SignOutButton';
 
 export const metadata = { title: 'Profile' };
@@ -78,19 +77,16 @@ export default async function ProfilePage() {
         <div className="space-y-2 px-4">
           <MarketRow
             label="Moneyline"
-            points={MARKET_POINTS.moneyline}
             wins={profile?.career_ml_wins ?? 0}
             losses={profile?.career_ml_losses ?? 0}
           />
           <MarketRow
             label="Spread"
-            points={MARKET_POINTS.spread}
             wins={profile?.career_spread_wins ?? 0}
             losses={profile?.career_spread_losses ?? 0}
           />
           <MarketRow
             label="Over / Under"
-            points={MARKET_POINTS.total}
             wins={profile?.career_total_wins ?? 0}
             losses={profile?.career_total_losses ?? 0}
           />
@@ -172,12 +168,10 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function MarketRow({
   label,
-  points,
   wins,
   losses,
 }: {
   label: string;
-  points: number;
   wins: number;
   losses: number;
 }) {
@@ -189,7 +183,6 @@ function MarketRow({
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold">
           {label}
-          <span className="ml-2 text-[10px] font-bold text-brand">+{points}</span>
         </span>
         <span className="text-sm tabnum text-muted">
           {formatRecord(wins, losses)}

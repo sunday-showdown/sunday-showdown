@@ -4,10 +4,12 @@
 // depends on is an argument, so grading is reproducible and a disputed week can
 // be replayed exactly.
 //
-// Every market is graded against the line stored on the pick, never a live
-// line. A book moving a spread after submission must not change a settled pick.
+// Every market is graded against the line AND the price stored on the pick,
+// never live odds. A book moving a line after submission must not change a
+// settled pick, and must not change what it paid.
 
-import { MARKET_POINTS, type PickResult, type PickemMarket } from './types';
+import { pointsForOdds, PUSH_POINTS } from './odds';
+import type { PickResult, PickemMarket } from './types';
 
 export interface GradeableGame {
   status: string;
@@ -21,6 +23,8 @@ export interface GradeablePick {
   selection: string;
   /** The line as offered to this player. Required for spread and total. */
   contestLine: number | null;
+  /** The American price as offered. Determines what a win is worth. */
+  contestOdds: number | null;
 }
 
 export interface Grade {
@@ -30,22 +34,8 @@ export interface Grade {
 
 const PENDING: Grade = { result: 'pending', points: 0 };
 
-function settle(market: PickemMarket, margin: number): Grade {
-  if (margin > 0) return { result: 'win', points: MARKET_POINTS[market] };
-  if (margin < 0) return { result: 'loss', points: 0 };
-  return { result: 'push', points: 0 };
-}
-
 /**
- * Grade one pick.
- *
- * Returns `pending` whenever the game cannot yet be settled — not final, or
- * final without scores. Returns `pending` for a malformed pick too (a spread
- * with no stored line, an unknown selection) rather than guessing: a wrong
- * result is far worse than an ungraded one, and an ungraded pick is visible.
- */
-/**
- * A usable score, or null.
+ * A usable number, or null.
  *
  * Checks finiteness, not just non-null. A `=== null` test alone lets undefined
  * and NaN through, and every comparison against NaN is false — so `settle`
@@ -56,6 +46,21 @@ function finiteOrNull(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function settle(margin: number, contestOdds: number | null): Grade {
+  if (margin > 0) return { result: 'win', points: pointsForOdds(contestOdds) };
+  if (margin < 0) return { result: 'loss', points: 0 };
+  // A push returns the stake, exactly as a real bet would.
+  return { result: 'push', points: PUSH_POINTS };
+}
+
+/**
+ * Grade one pick.
+ *
+ * Returns `pending` whenever the game cannot yet be settled — not final, or
+ * final without scores. Returns `pending` for a malformed pick too (a spread
+ * with no stored line, an unknown selection) rather than guessing: a wrong
+ * result is far worse than an ungraded one, and an ungraded pick is visible.
+ */
 export function gradePick(pick: GradeablePick, game: GradeableGame): Grade {
   if (game.status !== 'final') return PENDING;
 
@@ -63,25 +68,25 @@ export function gradePick(pick: GradeablePick, game: GradeableGame): Grade {
   const awayScore = finiteOrNull(game.awayScore);
   if (homeScore === null || awayScore === null) return PENDING;
 
+  const odds = finiteOrNull(pick.contestOdds);
+
   switch (pick.marketType) {
     case 'moneyline': {
       if (pick.selection !== 'home' && pick.selection !== 'away') return PENDING;
       const margin =
         pick.selection === 'home' ? homeScore - awayScore : awayScore - homeScore;
-      return settle('moneyline', margin);
+      return settle(margin, odds);
     }
 
     case 'spread': {
       if (pick.selection !== 'home' && pick.selection !== 'away') return PENDING;
-      // Finite, not merely non-null: a NaN line also lands on a push, for the
-      // same reason an unusable score does.
       const line = finiteOrNull(pick.contestLine);
       if (line === null) return PENDING;
       // The line is from the picked side's perspective: a favourite carries a
       // negative line and must cover it.
       const picked = pick.selection === 'home' ? homeScore : awayScore;
       const other = pick.selection === 'home' ? awayScore : homeScore;
-      return settle('spread', picked + line - other);
+      return settle(picked + line - other, odds);
     }
 
     case 'total': {
@@ -90,7 +95,7 @@ export function gradePick(pick: GradeablePick, game: GradeableGame): Grade {
       if (line === null) return PENDING;
       const combined = homeScore + awayScore;
       const margin = pick.selection === 'over' ? combined - line : line - combined;
-      return settle('total', margin);
+      return settle(margin, odds);
     }
 
     default:

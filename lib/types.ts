@@ -1,6 +1,8 @@
 // Shared domain types. These mirror the Postgres enums in
 // supabase/migrations/0001_foundation.sql; keep them in step.
 
+import { STAKE, probabilityToAmerican, pointsForOdds } from './odds';
+
 export type GameStatus = 'scheduled' | 'in_progress' | 'final' | 'postponed';
 
 export type MarketType = 'moneyline' | 'spread' | 'total' | 'anytime_td';
@@ -16,59 +18,68 @@ export type SurvivorPickResult = 'pending' | 'survived' | 'eliminated' | 'push';
 
 export type TdValueSource = 'auto' | 'manual';
 
-/**
- * Points per market.
- *
- * Moneyline pays least because it is the only market you can make safe — taking
- * a −600 favourite is close to a free point. Spread and total are both set by
- * the book to be coin flips, so they are equally hard and pay the same.
- *
- * The whole system is meant to be sayable in one breath: the winner is worth 1,
- * beating a line is worth 3.
- */
-export const MARKET_POINTS: Record<PickemMarket, number> = {
-  moneyline: 1,
-  spread: 3,
-  total: 3,
-};
-
 export const PICKEM_MARKETS: readonly PickemMarket[] = ['moneyline', 'spread', 'total'];
 
-/**
- * TD Scorer tiers.
- *
- * A player is placed in a tier by how often he actually scores, and the tier is
- * the payout. Three buckets instead of a continuous curve, because a player
- * needs to be able to look at a name and know what it is worth without doing
- * arithmetic.
- *
- * Kept on the same scale as Pick'em so one TD pick cannot outweigh a whole card.
- */
-export type TdTier = 'lock' | 'solid' | 'longshot';
-
-export const TD_TIERS: Record<TdTier, { points: number; label: string; minRate: number }> = {
-  // Scores in at least half his games.
-  lock: { points: 2, label: 'Lock', minRate: 0.5 },
-  // Scores in roughly a quarter to a half.
-  solid: { points: 4, label: 'Solid', minRate: 0.25 },
-  // Everyone else.
-  longshot: { points: 8, label: 'Long shot', minRate: 0 },
+export const MARKET_LABEL: Record<PickemMarket, string> = {
+  moneyline: 'Moneyline',
+  spread: 'Spread',
+  total: 'Total',
 };
 
+// TD Scorer -------------------------------------------------------------------
+//
+// There is no sportsbook feed for anytime-TD props on any free source, so a
+// player's price is estimated from how often he actually scores and then run
+// through the same payout rule as everything else. One rule for the whole app:
+// every pick is a $10 bet and you score what it pays.
+
 /**
- * Which tier a player falls into, from touchdowns and games played.
+ * League-average scoring rate, used to shrink small samples toward the middle.
  *
- * A player with fewer than three games has no meaningful rate yet, so he starts
- * as 'solid' rather than being called a long shot on one quiet appearance.
+ * Without it a backup who scored in his only appearance reads as a 100% scorer
+ * and would be priced as the safest pick on the board.
  */
-export function tdTierFor(totalTds: number, gamesPlayed: number): TdTier {
-  if (gamesPlayed < 3) return 'solid';
-  const rate = totalTds / gamesPlayed;
-  if (rate >= TD_TIERS.lock.minRate) return 'lock';
-  if (rate >= TD_TIERS.solid.minRate) return 'solid';
+const TD_PRIOR_RATE = 0.18;
+const TD_PRIOR_WEIGHT = 4;
+
+/** A player's chance of scoring, shrunk toward the league average. */
+export function tdScoringProbability(totalTds: number, gamesPlayed: number): number {
+  const tds = Number.isFinite(totalTds) ? Math.max(0, totalTds) : 0;
+  const games = Number.isFinite(gamesPlayed) ? Math.max(0, gamesPlayed) : 0;
+  const rate = (tds + TD_PRIOR_RATE * TD_PRIOR_WEIGHT) / (games + TD_PRIOR_WEIGHT);
+  // Keep inside the range American odds can express.
+  return Math.min(0.9, Math.max(0.02, rate));
+}
+
+/** That probability expressed as a price, so TD picks read like every other. */
+export function tdAmericanOdds(totalTds: number, gamesPlayed: number): number {
+  return probabilityToAmerican(tdScoringProbability(totalTds, gamesPlayed)) ?? 400;
+}
+
+/** What a TD pick pays if the player scores. */
+export function tdPointsFor(totalTds: number, gamesPlayed: number): number {
+  return pointsForOdds(tdAmericanOdds(totalTds, gamesPlayed));
+}
+
+/**
+ * A plain-language band for a player's price.
+ *
+ * Purely a display aid — the payout always comes from the odds. This just lets
+ * the UI group names into "likely" and "long shot" without anyone doing sums.
+ */
+export type TdBand = 'lock' | 'solid' | 'longshot';
+
+export function tdBandFor(totalTds: number, gamesPlayed: number): TdBand {
+  const probability = tdScoringProbability(totalTds, gamesPlayed);
+  if (probability >= 0.45) return 'lock';
+  if (probability >= 0.22) return 'solid';
   return 'longshot';
 }
 
-export function tdPointsFor(totalTds: number, gamesPlayed: number): number {
-  return TD_TIERS[tdTierFor(totalTds, gamesPlayed)].points;
-}
+export const TD_BAND_LABEL: Record<TdBand, string> = {
+  lock: 'Likely',
+  solid: 'Live',
+  longshot: 'Long shot',
+};
+
+export { STAKE };
