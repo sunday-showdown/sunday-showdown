@@ -144,6 +144,38 @@ build.
 Grading is idempotent: career stats are recomputed from `picks`, never
 incremented, so a re-run after a score correction produces the same numbers.
 
+## Adding a feature
+
+Setup is one-time. Normal changes are just:
+
+```bash
+npm test && git add -A && git commit -m "..." && git push
+```
+
+Vercel deploys every push to `main` automatically. CI runs typecheck, tests and
+a production build first, so a broken build is visible before it matters. To
+roll back: Vercel → Deployments → ⋯ → Promote to Production on the last good one.
+
+**If the change needs new tables or columns**, add `supabase/migrations/0010_*.sql`
+and run `npm run migrate` once. Applied files are tracked in `schema_migrations`
+and skipped on re-runs.
+
+Keep migrations **additive** — new tables, new nullable columns. Vercel preview
+deployments inherit production environment variables, so they read and write the
+**production database**; a `drop column` or a destructive `alter` run while
+testing a branch hits real data. If you need a destructive change, create a
+second free Supabase project as staging first and point a preview environment at
+it.
+
+Three rules worth keeping, because the app's integrity rests on them:
+
+- Pick writes go through the API route, never straight from the browser to the
+  table. The route is what resolves the line server-side.
+- Anything competition-critical gets a database constraint or trigger, not just
+  an application check. Application code can be bypassed; the previous build's
+  `PickSheet` is proof.
+- Grading must stay idempotent. Recompute totals from `picks`; never increment.
+
 ## Tests
 
 ```bash
