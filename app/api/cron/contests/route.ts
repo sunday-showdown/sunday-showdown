@@ -6,6 +6,7 @@
 import { createAdminClient, isAuthorizedCron } from '@/lib/supabase/admin';
 import { fetchCurrentWeek } from '@/lib/espn/client';
 import { openWeek, freezeLockedContests } from '@/lib/contests';
+import { sendLockReminders } from '@/lib/reminders';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -29,8 +30,9 @@ export async function GET(request: Request) {
     }
 
     const frozen = await freezeLockedContests(db);
+    const reminders = await sendLockReminders(db);
 
-    const warnings = [...opened.flatMap((o) => o.warnings), ...frozen.warnings];
+    const warnings = [...opened.flatMap((o) => o.warnings), ...frozen.warnings, ...reminders.warnings];
     await db.from('sync_logs').insert({
       sync_type: 'contest_lifecycle',
       status: warnings.length > 0 ? 'partial' : 'success',
@@ -49,6 +51,7 @@ export async function GET(request: Request) {
       challengesCreated: opened.reduce((sum, o) => sum + o.challengesCreated, 0),
       challengesFrozen: frozen.challengesFrozen,
       linesFrozen: frozen.linesFrozen,
+      remindersSent: reminders.notified,
       warnings,
     });
   } catch (error) {
