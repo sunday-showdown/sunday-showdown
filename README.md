@@ -1,26 +1,31 @@
 # Sunday Showdown
 
-A private NFL pick'em app for a friend group. One pick per game — moneyline
-(+1), spread (+5) or the total (+5) — locking at the first Sunday kickoff and
-settling itself from ESPN's free data feed.
+A private NFL pick'em app for a friend group. One pick per game — moneyline,
+spread or the total — locking at the first Sunday kickoff and settling itself
+from ESPN's free data feed.
+
+Every pick is scored as a $10 bet and pays what the odds pay, which is the one
+rule the whole competition rests on. The reasoning is in `lib/odds.ts`.
 
 Next.js on Vercel, Postgres on Supabase, no paid services.
 
 ## Status
 
-Built and complete:
+Built:
 
 - **Pick'em** — the full loop: schedule, odds, picking, locking, line freezing, grading, standings, career stats
+- **Other modes** — Survivor, TD Scorer, head-to-head, playground, each with its own pot
+- **Chat** — league channels, a room per mode, direct messages, images, GIFs, reactions, @mentions, live over Supabase realtime
+- **Shared bet slips** — post what you placed at a book; the league tails or fades it
+- **Shared cards** — post your week's card into a channel and watch it grade itself there
+- **Highlights** — the generated feed of winners, upsets and streaks
 - **Auth** — email/password, email confirmation, password reset
-- **Leagues** — create, invite code, join, commissioner role
+- **Leagues** — create, invite code, join, members, commissioner role
+- **Notifications** — in-app bell and web push
 - **PWA** — installable, read-only offline for standings and profile
 
-Schema exists but **no UI or jobs yet**: TD Scorer, Survivor, head-to-head,
-playground, social feed, notifications, pots. The tables, constraints and RLS
-policies for all of them are in `supabase/migrations`, so they can be built
-without further schema work.
-
-Not built: push notifications.
+Optional and off by default: GIF search, which needs a free Tenor key. Without
+it the picker says so and GIFs can still be sent as file uploads.
 
 ## Setup
 
@@ -62,9 +67,12 @@ Setting up fresh instead? Copy `.env.example` to `.env.local` and fill it in:
 | `CRON_SECRET` | any long random string you generate |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | `node -e "console.log(JSON.stringify(require('web-push').generateVAPIDKeys()))"` |
 | `VAPID_SUBJECT` | `mailto:` your address |
+| `TENOR_API_KEY` | optional — Google Cloud, with the Tenor API enabled |
 
-Push is optional: with no VAPID keys, `pushToUsers` reports `skipped` and
-everything else runs normally.
+Two of these are optional and the app degrades rather than breaks without
+them. With no VAPID keys, `pushToUsers` reports `skipped` and everything else
+runs normally. With no Tenor key, `/api/gifs` reports `configured: false`, the
+picker says GIF search is switched off, and GIFs still send as file uploads.
 
 ### 3. Run it
 
@@ -93,8 +101,16 @@ from.
 
 ### 5. Deploy
 
-Push to GitHub, import the repo in Vercel, and add the same four environment
-variables for Production, Preview and Development.
+Push to GitHub, import the repo in Vercel, and add the same environment
+variables for Production, Preview and Development — all of them except
+`DATABASE_URL`, which stays local.
+
+Chat attachments need a public storage bucket called `chat-media`. Migration
+0013 creates it, but on some projects `storage.objects` belongs to
+`supabase_storage_admin` and the migration prints a warning instead; if it did,
+create the bucket in the dashboard as **public**. Uploads go through
+`/api/uploads` with the service role either way, which is where the file type
+and size are actually checked.
 
 ### 6. Scheduling
 
@@ -158,6 +174,10 @@ build.
 | A final game must have scores | `nfl_games_final_has_scores` check |
 | Grading uses the stored line, never live odds | `contest_line` snapshotted on the pick |
 | Users cannot grant themselves admin | column grants, migration 0009 |
+| One pot per league, season and mode | `pots_one_per_mode_idx`, migration 0013 |
+| A message cannot change author, channel or attachment | `enforce_message_immutability` trigger |
+| A direct message has one conversation per pair | `dm_key` unique, set by `open_dm` |
+| Users cannot rewrite a message's provenance | column grants, migration 0013 |
 
 Grading is idempotent: career stats are recomputed from `picks`, never
 incremented, so a re-run after a score correction produces the same numbers.
