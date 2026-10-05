@@ -2,13 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function WeekSelector({
-  week,
-  maxWeek = 18,
-}: {
-  week: number;
-  maxWeek?: number;
-}) {
+export default function WeekSelector({ week, maxWeek = 18 }: { week: number; maxWeek?: number }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -26,8 +20,11 @@ export default function WeekSelector({
           type="button"
           onClick={() => go(n)}
           aria-current={n === week ? 'true' : undefined}
-          className={`h-8 shrink-0 rounded-lg px-3 text-xs font-bold tabnum transition-colors ${
-            n === week ? 'bg-brand text-brand-ink' : 'bg-raised text-muted'
+          aria-label={`Week ${n}`}
+          className={`display h-9 w-9 shrink-0 rounded-xl text-[14px] leading-none transition-colors ${
+            n === week
+              ? 'bg-brand text-brand-ink glow-brand'
+              : 'bg-raised text-muted active:bg-line/60'
           }`}
         >
           {n}

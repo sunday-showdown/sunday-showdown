@@ -24,7 +24,7 @@ export default function AchievementGrid({ tiles }: { tiles: readonly Achievement
   return (
     <section className="mt-5">
       <div className="flex items-baseline justify-between px-4 pb-2">
-        <h2 className="font-display text-sm font-bold uppercase tracking-wide text-muted">
+        <h2 className="eyebrow">
           Badges
         </h2>
         <span className="text-xs tabnum text-muted">

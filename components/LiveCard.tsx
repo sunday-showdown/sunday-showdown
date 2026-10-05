@@ -79,7 +79,7 @@ export default function LiveCard({
       </div>
 
       <div className="mt-4 flex items-center justify-between px-4">
-        <h2 className="font-display text-sm font-bold uppercase tracking-wide text-muted">
+        <h2 className="eyebrow">
           Your card
         </h2>
         <button type="button" onClick={refresh} className="btn-ghost h-8 px-3 text-xs">
@@ -108,7 +108,7 @@ export default function LiveCard({
 
                   <span className="flex items-center gap-2">
                     {live && <span className="h-1.5 w-1.5 animate-pulse-live rounded-full bg-live" />}
-                    <span className="font-display text-base font-extrabold tabnum">
+                    <span className="display text-[17px] leading-none tabnum">
                       {row.status === 'scheduled'
                         ? formatKickoff(row.kickoff)
                         : `${row.awayScore ?? 0}–${row.homeScore ?? 0}`}
@@ -124,7 +124,7 @@ export default function LiveCard({
                         {style.label}
                       </span>
                       <span
-                        className={`font-display text-sm font-extrabold tabnum ${
+                        className={`display text-[15px] leading-none tabnum ${
                           row.value > 0 ? 'text-brand' : 'text-muted'
                         }`}
                       >
@@ -152,7 +152,7 @@ function Total({ label, value, tone }: { label: string; value: number; tone: str
   return (
     <div className="px-2 py-3 text-center">
       <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</div>
-      <div className={`font-display mt-0.5 text-xl font-extrabold tabnum ${tone}`}>{value}</div>
+      <div className={`display mt-0.5 text-[22px] leading-none tabnum ${tone}`}>{value}</div>
     </div>
   );
 }

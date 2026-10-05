@@ -61,7 +61,7 @@ export default function PotPanel({
     return (
       <section className="px-4">
         <div className="card p-5">
-          <h2 className="font-display text-lg font-bold">Track a pot</h2>
+          <h2 className="display text-[19px] leading-none">Track a pot</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             A shared ledger of who has paid in. The app never handles money —
             it just means nobody has to keep the list in their head.
@@ -106,7 +106,7 @@ export default function PotPanel({
       {error && <p role="alert" className="mx-4 mt-3 rounded-xl bg-loss/15 px-4 py-3 text-sm text-loss">{error}</p>}
 
       <section className="mt-4 px-4">
-        <h2 className="pb-2 font-display text-sm font-bold uppercase tracking-wide text-muted">
+        <h2 className="pb-2 eyebrow">
           Who&apos;s paid
         </h2>
         <div className="space-y-2">
@@ -155,7 +155,7 @@ function Figure({ label, value, tone = 'text-ink' }: { label: string; value: str
   return (
     <div className="px-2 py-3 text-center">
       <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</div>
-      <div className={`font-display mt-0.5 text-lg font-extrabold tabnum ${tone}`}>{value}</div>
+      <div className={`display mt-0.5 text-[19px] leading-none tabnum ${tone}`}>{value}</div>
     </div>
   );
 }

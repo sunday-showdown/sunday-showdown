@@ -46,7 +46,7 @@ function NewPoolForm() {
 
   return (
     <main className="px-5 pt-6 safe-top">
-      <h1 className="font-display text-2xl font-extrabold tracking-tight">Start a pool</h1>
+      <h1 className="display text-[28px] leading-none">Start a pool</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
         Everyone picks one team a week to win. Get it wrong and you&apos;re out.
         You can never pick the same team twice, so spending a good one early

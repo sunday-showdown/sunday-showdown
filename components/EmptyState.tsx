@@ -9,8 +9,8 @@ export default function EmptyState({
 }) {
   return (
     <div className="card mx-4 mt-4 px-6 py-10 text-center">
-      <h2 className="font-display text-lg font-bold">{title}</h2>
-      {body && <p className="mx-auto mt-2 max-w-xs text-sm leading-relaxed text-muted">{body}</p>}
+      <h2 className="display text-[22px] leading-none">{title}</h2>
+      {body && <p className="mx-auto mt-2.5 max-w-xs text-sm leading-relaxed text-muted">{body}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
   );

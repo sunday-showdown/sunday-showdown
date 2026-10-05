@@ -27,13 +27,13 @@ export default function ResetPasswordPage() {
   return (
     <main className="mx-auto min-h-dvh max-w-md px-5 safe-top">
       <header className="py-3">
-        <Link href="/" className="font-display text-lg font-extrabold tracking-tight">
+        <Link href="/" className="display text-[19px] leading-none">
           <Wordmark />
         </Link>
       </header>
 
       <div className="pt-10">
-        <h1 className="font-display text-3xl font-extrabold tracking-tight">Reset password</h1>
+        <h1 className="display text-[32px] leading-none">Reset password</h1>
 
         {sent ? (
           <p className="mt-4 rounded-xl bg-brand/10 px-4 py-4 text-sm leading-relaxed text-brand">

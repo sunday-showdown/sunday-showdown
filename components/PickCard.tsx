@@ -37,6 +37,12 @@ interface Props {
   onSelect: (choice: Selection | null) => void;
 }
 
+const SHORT_MARKET: Record<PickemMarket, string> = {
+  moneyline: 'ML',
+  spread: 'SPR',
+  total: 'O/U',
+};
+
 export default function PickCard({
   game,
   odds,
@@ -61,32 +67,37 @@ export default function PickCard({
   };
 
   return (
-    <article className={`card overflow-hidden ${selected ? 'border-brand/50' : ''}`}>
-      <header className="flex items-center justify-between gap-2 px-4 pt-3">
-        <div className="flex items-center gap-2 text-sm font-semibold">
+    <article className={`card overflow-hidden ${selected ? 'card-hot' : ''}`}>
+      <header className="flex items-center justify-between gap-2 px-3.5 pt-3">
+        <div className="flex min-w-0 items-center gap-2">
           <TeamBadge abbr={game.away_abbr} logo={game.away_logo} />
-          <span className="text-muted">@</span>
+          <span className="text-[11px] font-bold text-muted">AT</span>
           <TeamBadge abbr={game.home_abbr} logo={game.home_logo} />
         </div>
-        <span className="text-[11px] font-medium text-muted">
+        <span className="shrink-0 text-[11px] font-semibold text-muted">
           {pickable ? formatKickoff(game.start_time) : <LockedTag game={game} />}
         </span>
       </header>
 
-      <div className="mt-2.5 divide-y divide-line/70 border-t border-line/70">
-        {markets.map((market) => {
+      <div className="mt-2.5">
+        {markets.map((market, index) => {
           const [left, right] =
             market === 'total'
               ? (['over', 'under'] as const)
               : (['away', 'home'] as const);
 
           return (
-            <div key={market} className="flex items-stretch gap-2 px-3 py-2">
-              <div className="flex w-16 shrink-0 flex-col justify-center">
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-                  {MARKET_LABEL[market]}
+            <div
+              key={market}
+              className={`flex items-stretch gap-2 px-2.5 py-1.5 ${
+                index === 0 ? 'border-t border-line/60' : ''
+              }`}
+            >
+              <div className="flex w-9 shrink-0 items-center justify-center">
+                <span className="display text-[11px] leading-none text-muted">
+                  {SHORT_MARKET[market]}
                 </span>
-                
+                <span className="sr-only">{MARKET_LABEL[market]}</span>
               </div>
 
               <div className="grid flex-1 grid-cols-2 gap-2">
@@ -105,27 +116,40 @@ export default function PickCard({
                       type="button"
                       disabled={!available}
                       aria-pressed={isSelected}
+                      aria-label={`${label}${pays !== null ? `, pays ${pays}` : ''}`}
                       onClick={() => choose(market, side)}
-                      className={`flex h-12 flex-col items-center justify-center rounded-xl border text-sm font-semibold transition-colors ${
+                      className={`tap relative flex flex-col items-center justify-center rounded-xl border
+                        transition-[transform,background-color,box-shadow] duration-150
+                        active:scale-[0.97] ${
+                          isSelected
+                            ? 'border-transparent text-brand-ink glow-brand'
+                            : available
+                              ? 'border-line bg-raised text-ink active:bg-line/50'
+                              : 'border-line/40 bg-raised/30 text-muted'
+                        }`}
+                      style={
                         isSelected
-                          ? 'border-brand bg-brand text-brand-ink'
-                          : available
-                            ? 'border-line bg-raised text-ink active:bg-line/60'
-                            : 'border-line/50 bg-raised/40 text-muted'
-                      }`}
+                          ? {
+                              backgroundImage:
+                                'linear-gradient(180deg, rgb(var(--brand-hot)) 0%, rgb(var(--brand)) 60%, rgb(var(--brand-deep)) 100%)',
+                            }
+                          : undefined
+                      }
                     >
-                      <span className="tabnum leading-tight">{label}</span>
+                      <span className="text-[13px] font-bold leading-tight tabnum">{label}</span>
                       <span
-                        className={`flex items-center gap-1 text-[10px] font-medium leading-tight tabnum ${
-                          isSelected ? 'text-brand-ink/75' : 'text-muted'
+                        className={`flex items-center gap-1.5 text-[10px] font-semibold leading-tight tabnum ${
+                          isSelected ? 'text-brand-ink/80' : 'text-muted'
                         }`}
                       >
                         {price ?? '—'}
                         {pays !== null && (
-                          // What it pays is the number that actually matters,
-                          // so it gets the emphasis and the price is context.
-                          <span className={isSelected ? 'font-bold' : 'font-bold text-brand'}>
-                            +{pays}
+                          <span
+                            className={`display text-[12px] leading-none ${
+                              isSelected ? 'text-brand-ink' : 'text-brand'
+                            }`}
+                          >
+                            {pays}
                           </span>
                         )}
                       </span>
@@ -163,13 +187,13 @@ function TeamBadge({ abbr, logo }: { abbr: string; logo: string | null }) {
       {logo ? (
         // eslint-disable-next-line @next/next/no-img-element -- ESPN CDN logos,
         // already small and correctly sized; next/image would add a proxy hop.
-        <img src={logo} alt="" width={20} height={20} className="h-5 w-5 object-contain" />
+        <img src={logo} alt="" width={22} height={22} className="h-[22px] w-[22px] object-contain" />
       ) : (
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-line text-[9px] font-bold">
+        <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-line text-[9px] font-bold">
           {abbr.slice(0, 2)}
         </span>
       )}
-      {abbr}
+      <span className="display text-[15px] leading-none">{abbr}</span>
     </span>
   );
 }
@@ -177,19 +201,21 @@ function TeamBadge({ abbr, logo }: { abbr: string; logo: string | null }) {
 function LockedTag({ game }: { game: Game }) {
   if (game.status === 'final') {
     return (
-      <span className="tabnum">
-        Final {game.away_score ?? 0}–{game.home_score ?? 0}
+      <span className="tabnum font-bold">
+        {game.away_score ?? 0}–{game.home_score ?? 0} <span className="text-muted">F</span>
       </span>
     );
   }
   if (game.status === 'in_progress') {
     return (
-      <span className="flex items-center gap-1 font-semibold text-live">
+      <span className="flex items-center gap-1.5 font-bold text-live">
         <span className="h-1.5 w-1.5 animate-pulse-live rounded-full bg-live" />
-        Live {game.away_score ?? 0}–{game.home_score ?? 0}
+        <span className="tabnum">
+          {game.away_score ?? 0}–{game.home_score ?? 0}
+        </span>
       </span>
     );
   }
-  if (game.status === 'postponed') return <span>Postponed</span>;
-  return <span>Locked</span>;
+  if (game.status === 'postponed') return <span>PPD</span>;
+  return <span className="text-muted">Locked</span>;
 }

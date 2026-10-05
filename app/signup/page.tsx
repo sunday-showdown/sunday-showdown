@@ -64,13 +64,13 @@ export default function SignupPage() {
   return (
     <main className="mx-auto min-h-dvh max-w-md px-5 safe-top">
       <header className="py-3">
-        <Link href="/" className="font-display text-lg font-extrabold tracking-tight">
+        <Link href="/" className="display text-[19px] leading-none">
           <Wordmark />
         </Link>
       </header>
 
       <div className="pt-8">
-        <h1 className="font-display text-3xl font-extrabold tracking-tight">Get started</h1>
+        <h1 className="display text-[32px] leading-none">Get started</h1>
         <p className="mt-2 text-sm text-muted">
           Pick a name your friends will recognise on the leaderboard.
         </p>

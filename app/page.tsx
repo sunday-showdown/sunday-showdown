@@ -17,7 +17,7 @@ export default async function LandingPage() {
       </header>
 
       <section className="pt-10">
-        <h1 className="font-display text-[2.6rem] font-extrabold leading-[1.05] tracking-tight">
+        <h1 className="display text-[2.8rem] leading-[0.92]">
           Beat your friends.
           <br />
           <span className="text-brand">Every Sunday.</span>
@@ -38,7 +38,7 @@ export default async function LandingPage() {
 
       <section className="mt-14">
         <div className="card p-5">
-          <h2 className="font-display text-lg font-bold">
+          <h2 className="display text-[19px] leading-none">
             Every pick is a <span className="text-brand">$10 bet</span>
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
@@ -61,7 +61,7 @@ export default async function LandingPage() {
       </section>
 
       <section className="card mt-10 p-5">
-        <h2 className="font-display text-lg font-bold">How a week works</h2>
+        <h2 className="display text-[19px] leading-none">How a week works</h2>
         <ol className="mt-4 space-y-4">
           {([
             ['Pick', 'Choose one market per game. Change your mind as often as you like until lock.'],
@@ -98,7 +98,7 @@ function Payout({ odds, pays, label }: { odds: string; pays: string; label: stri
         <span className="tabnum font-semibold text-ink">{odds}</span>
         <span className="ml-2">{label}</span>
       </span>
-      <span className="font-display text-lg font-extrabold tabnum text-brand">{pays}</span>
+      <span className="display text-[19px] leading-none tabnum text-brand">{pays}</span>
     </div>
   );
 }

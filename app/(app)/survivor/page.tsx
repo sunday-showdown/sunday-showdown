@@ -125,7 +125,7 @@ export default async function SurvivorPage({
 
       {picks.length > 0 && (
         <section className="mt-4 px-4">
-          <h2 className="pb-2 font-display text-sm font-bold uppercase tracking-wide text-muted">
+          <h2 className="pb-2 eyebrow">
             Your run
           </h2>
           <div className="no-scrollbar flex gap-1.5 overflow-x-auto">
@@ -141,14 +141,14 @@ export default async function SurvivorPage({
                 }`}
               >
                 <span className="text-[10px] text-muted">W{p.week}</span>
-                <span className="font-display text-sm font-extrabold">{p.team_abbr}</span>
+                <span className="display text-[15px] leading-none">{p.team_abbr}</span>
               </div>
             ))}
           </div>
         </section>
       )}
 
-      <h2 className="px-4 pb-2 pt-5 font-display text-sm font-bold uppercase tracking-wide text-muted">
+      <h2 className="px-4 pb-2 pt-5 eyebrow">
         Week {week} — pick one to win
       </h2>
 
@@ -168,7 +168,7 @@ export default async function SurvivorPage({
 function Header({ league }: { league: string }) {
   return (
     <header className="px-4 pb-2 pt-3 safe-top">
-      <h1 className="font-display text-2xl font-extrabold tracking-tight">Survivor</h1>
+      <h1 className="display text-[28px] leading-none">Survivor</h1>
       <p className="text-xs text-muted">{league}</p>
     </header>
   );

@@ -3,29 +3,32 @@
 @tailwind utilities;
 
 /* Dark by default: this is used on a phone, on a couch, on a Sunday.
-   Pure black ground so the logo sits on its own background. */
+   Near-black with a red cast rather than a neutral grey, so the brand colour
+   looks like it belongs to the surface instead of sitting on top of it. */
 :root {
-  --bg: 0 0 0;
-  --surface: 17 15 16;
-  --raised: 28 24 26;
-  --line: 52 44 47;
-  --ink: 245 243 244;
-  --muted: 154 146 150;
+  --bg: 7 5 6;
+  --surface: 18 14 16;
+  --raised: 30 23 26;
+  --line: 58 44 49;
+  --ink: 247 244 245;
+  --muted: 158 146 151;
 
-  /* Brand red, taken from the logo. White passes AA on it (4.7:1). */
+  /* Brand red, from the logo. White passes AA on it (4.7:1). */
   --brand: 240 18 25;
+  --brand-hot: 255 58 54;
+  --brand-deep: 184 12 18;
   --brand-ink: 255 255 255;
 
   /* Results stay separate from the brand. Red now means "this app", so it
-     cannot also mean "you lost" — a losing pick would read as a selected one.
-     Wins keep green; losses go slate, which is quieter and unambiguous. */
-  --win: 42 200 110;
-  --loss: 124 134 150;
-  --push: 88 96 110;
+     cannot also mean "you lost" — a losing pick would read as a selected one. */
+  --win: 42 205 112;
+  --loss: 128 136 152;
+  --push: 92 100 114;
   --live: 255 149 48;
+  --gold: 255 196 60;
 
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: var(--font-sans);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-anton), var(--font-inter), system-ui, sans-serif;
 
   color-scheme: dark;
 }
@@ -34,68 +37,195 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html,
-body {
+html {
+  /* Stop iOS inflating text in landscape. */
+  -webkit-text-size-adjust: 100%;
   background: rgb(var(--bg));
-  color: rgb(var(--ink));
-  font-family: var(--font-sans);
-  /* Fill the notch area on iOS when installed as a PWA. */
-  min-height: 100dvh;
 }
 
 body {
   margin: 0;
+  min-height: 100dvh;
+  background: rgb(var(--bg));
+  color: rgb(var(--ink));
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* No rubber-band on the page itself; scrollers opt in individually. */
   overscroll-behavior-y: none;
-  /* Stop the pick sheet being hidden behind the bottom nav. */
-  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* A faint red wash at the top so the screen is not a flat slab. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 340px;
+  background: radial-gradient(
+    120% 100% at 50% 0%,
+    rgb(var(--brand) / 0.14) 0%,
+    rgb(var(--brand) / 0.04) 45%,
+    transparent 75%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+main,
+nav {
+  position: relative;
+  z-index: 1;
 }
 
 @layer utilities {
   .tabnum {
     font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
   }
 
-  /* Horizontal scrollers (week selector, team rows) should not show a bar on
-     mobile but must stay keyboard- and wheel-scrollable. */
   .no-scrollbar {
     scrollbar-width: none;
     -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
 
+  /* iPhone safe areas. The notch and the home indicator both eat layout. */
   .safe-top {
     padding-top: max(0.75rem, env(safe-area-inset-top));
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* 44pt is Apple's minimum comfortable touch target. */
+  .tap {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .display {
+    font-family: var(--font-display);
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+  }
+
+  /* The angular cut from the logo, reused as an accent. */
+  .slash {
+    clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
+  }
+
+  .glow-brand {
+    box-shadow:
+      0 0 0 1px rgb(var(--brand) / 0.5),
+      0 8px 28px -8px rgb(var(--brand) / 0.65);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 22px rgb(var(--brand) / 0.55);
   }
 }
 
 @layer components {
+  /* Cards get a lit top edge so they read as objects rather than rectangles. */
   .card {
-    @apply rounded-2xl border border-line bg-surface;
+    @apply relative rounded-2xl border border-line/80 bg-surface;
+    background-image: linear-gradient(
+      180deg,
+      rgb(255 255 255 / 0.045) 0%,
+      rgb(255 255 255 / 0) 42%
+    );
+  }
+
+  .card-hot {
+    @apply border-transparent;
+    background-image:
+      linear-gradient(180deg, rgb(var(--brand) / 0.16) 0%, rgb(var(--brand) / 0.03) 55%),
+      linear-gradient(180deg, rgb(255 255 255 / 0.05) 0%, rgb(255 255 255 / 0) 40%);
+    box-shadow: inset 0 0 0 1px rgb(var(--brand) / 0.42);
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl font-semibold
-      transition-colors disabled:opacity-50 disabled:pointer-events-none
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-xl
+      font-semibold transition-[transform,background-color,box-shadow] duration-150
+      active:scale-[0.975] disabled:pointer-events-none disabled:opacity-45
       focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
       focus-visible:outline-brand;
+    min-height: 44px;
   }
 
   .btn-primary {
-    @apply btn bg-brand text-brand-ink hover:bg-brand/90 active:bg-brand/80;
+    @apply btn text-brand-ink;
+    background-image: linear-gradient(
+      180deg,
+      rgb(var(--brand-hot)) 0%,
+      rgb(var(--brand)) 55%,
+      rgb(var(--brand-deep)) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.25),
+      0 6px 20px -8px rgb(var(--brand) / 0.8);
   }
 
   .btn-ghost {
-    @apply btn border border-line bg-raised text-ink hover:bg-line/50;
+    @apply btn border border-line bg-raised text-ink active:bg-line/50;
   }
 
   .field {
-    @apply w-full rounded-xl border border-line bg-raised px-4 text-base text-ink
-      placeholder:text-muted focus:border-brand focus:outline-none;
+    @apply w-full rounded-xl border border-line bg-raised px-4 text-ink
+      placeholder:text-muted focus:border-brand focus:outline-none
+      focus:ring-2 focus:ring-brand/25;
+    min-height: 48px;
     /* 16px minimum stops iOS Safari zooming the viewport on focus. */
-    min-height: 3rem;
     font-size: 16px;
+  }
+
+  /* Section heading with an angular red tick, echoing the mark. */
+  .eyebrow {
+    @apply flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted;
+  }
+  .eyebrow::before {
+    content: '';
+    @apply h-3 w-1 shrink-0 rounded-sm bg-brand;
+    clip-path: polygon(0 0, 100% 0, 100% 78%, 0 100%);
+  }
+
+  .chip {
+    @apply inline-flex items-center rounded-lg px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide;
+  }
+}
+
+/* The live pulse, used sparingly so it still means something. */
+@keyframes pulse-live {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.82);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(110%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 

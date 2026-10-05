@@ -104,7 +104,7 @@ export default async function LivePage({
   return (
     <main className="pb-4">
       <header className="px-4 pb-3 pt-3 safe-top">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight">Live</h1>
+        <h1 className="display text-[28px] leading-none">Live</h1>
         <p className="text-xs text-muted">
           {league.name} · week {week}
         </p>

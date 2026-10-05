@@ -79,11 +79,11 @@ export default function TdBoard({ challengeId, candidates, myPicks, locked }: Pr
         <div className="flex items-center justify-between">
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Picked</div>
-            <div className="font-display text-xl font-extrabold tabnum">{myPicks.length}</div>
+            <div className="display text-[22px] leading-none tabnum">{myPicks.length}</div>
           </div>
           <div className="text-right">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">On the line</div>
-            <div className="font-display text-xl font-extrabold tabnum text-brand">+{staked}</div>
+            <div className="display text-[22px] leading-none tabnum text-brand">+{staked}</div>
           </div>
         </div>
 

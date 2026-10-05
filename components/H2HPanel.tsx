@@ -96,7 +96,7 @@ export default function H2HPanel({ leagueId, season, week, challenges, mates }: 
 
       {open.length > 0 && (
         <section className="px-4">
-          <h2 className="pb-2 font-display text-sm font-bold uppercase tracking-wide text-muted">
+          <h2 className="pb-2 eyebrow">
             This week
           </h2>
           <div className="space-y-2">
@@ -158,7 +158,7 @@ export default function H2HPanel({ leagueId, season, week, challenges, mates }: 
       )}
 
       <section className="mt-5 px-4">
-        <h2 className="pb-2 font-display text-sm font-bold uppercase tracking-wide text-muted">
+        <h2 className="pb-2 eyebrow">
           Call someone out
         </h2>
         {mates.length === 0 ? (
@@ -189,7 +189,7 @@ export default function H2HPanel({ leagueId, season, week, challenges, mates }: 
 
       {done.length > 0 && (
         <section className="mt-5 px-4">
-          <h2 className="pb-2 font-display text-sm font-bold uppercase tracking-wide text-muted">
+          <h2 className="pb-2 eyebrow">
             Settled
           </h2>
           <div className="space-y-2">

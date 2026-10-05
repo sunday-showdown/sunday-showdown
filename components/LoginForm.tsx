@@ -39,7 +39,7 @@ export default function LoginForm() {
 
   return (
     <div className="pt-10">
-        <h1 className="font-display text-3xl font-extrabold tracking-tight">Welcome back</h1>
+        <h1 className="display text-[32px] leading-none">Welcome back</h1>
         <p className="mt-2 text-sm text-muted">Sign in to make this week&apos;s picks.</p>
 
         <form onSubmit={signIn} className="mt-8 space-y-3">

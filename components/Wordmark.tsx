@@ -37,7 +37,7 @@ export default function Wordmark({ size = 28 }: { size?: number }) {
           <rect x="274" y="228" width="12" height="56" rx="6" />
         </g>
       </svg>
-      <span className="font-display text-lg font-extrabold tracking-tight">
+      <span className="display text-[19px] leading-none">
         Sunday<span className="text-brand">Showdown</span>
       </span>
     </span>

@@ -63,7 +63,7 @@ export default async function ProfilePage() {
   return (
     <main className="pb-4">
       <header className="px-4 pb-3 pt-3 safe-top">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight">
+        <h1 className="display text-[28px] leading-none">
           {profile?.username ?? 'Your profile'}
         </h1>
         <p className="text-xs text-muted">{user.email}</p>
@@ -85,7 +85,7 @@ export default async function ProfilePage() {
       </section>
 
       <section className="mt-5">
-        <h2 className="px-4 pb-2 font-display text-sm font-bold uppercase tracking-wide text-muted">
+        <h2 className="px-4 pb-2 eyebrow">
           By market
         </h2>
         <div className="space-y-2 px-4">
@@ -113,7 +113,7 @@ export default async function ProfilePage() {
             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
               Current streak
             </div>
-            <div className="font-display mt-0.5 text-xl font-extrabold tabnum">
+            <div className="display mt-0.5 text-[22px] leading-none tabnum">
               {profile?.current_pickem_streak ?? 0}
             </div>
           </div>
@@ -121,7 +121,7 @@ export default async function ProfilePage() {
             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
               Best ever
             </div>
-            <div className="font-display mt-0.5 text-xl font-extrabold tabnum text-brand">
+            <div className="display mt-0.5 text-[22px] leading-none tabnum text-brand">
               {profile?.longest_pickem_streak ?? 0}
             </div>
           </div>
@@ -129,14 +129,18 @@ export default async function ProfilePage() {
       </section>
 
       <section className="mt-5">
-        <h2 className="px-4 pb-2 font-display text-sm font-bold uppercase tracking-wide text-muted">
+        <h2 className="px-4 pb-2 eyebrow">
           Your leagues
         </h2>
         <div className="space-y-2 px-4">
           {leagues.map((league) => (
-            <div key={league.id} className="card flex items-center justify-between px-4 py-3">
-              <div>
-                <div className="text-sm font-semibold">{league.name}</div>
+            <Link
+              key={league.id}
+              href={`/leagues/`}
+              className="card flex items-center justify-between px-4 py-3"
+            >
+              <div className="min-w-0">
+                <div className="truncate text-sm font-bold">{league.name}</div>
                 <div className="text-[11px] text-muted">
                   {league.season}
                   {league.commissioner_id === user.id && (
@@ -144,20 +148,15 @@ export default async function ProfilePage() {
                   )}
                 </div>
               </div>
-              <Link
-                href={`/standings?league=${league.id}`}
-                className="btn-ghost h-9 px-3 text-xs"
-              >
-                Standings
-              </Link>
-            </div>
+              <span className="text-muted">›</span>
+            </Link>
           ))}
 
           <div className="flex gap-2">
-            <Link href="/leagues/new" className="btn-ghost h-11 flex-1 text-sm">
+            <Link href="/leagues/new" className="btn-ghost flex-1 text-sm">
               New league
             </Link>
-            <Link href="/leagues/join" className="btn-ghost h-11 flex-1 text-sm">
+            <Link href="/leagues/join" className="btn-ghost flex-1 text-sm">
               Join one
             </Link>
           </div>
@@ -177,7 +176,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="px-2 py-4 text-center">
       <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</div>
-      <div className="font-display mt-1 text-lg font-extrabold tabnum">{value}</div>
+      <div className="display mt-1 text-[19px] leading-none tabnum">{value}</div>
     </div>
   );
 }

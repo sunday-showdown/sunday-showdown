@@ -157,7 +157,7 @@ export default function PlaygroundCard({
       {myCalls.length > 0 && (
         <section className="mt-4 px-4">
           <div className="flex items-center justify-between pb-2">
-            <h2 className="font-display text-sm font-bold uppercase tracking-wide text-muted">
+            <h2 className="eyebrow">
               Your calls
             </h2>
             {!published && (
@@ -188,7 +188,7 @@ export default function PlaygroundCard({
 
       {leagueCalls.length > 0 && (
         <section className="mt-5 px-4">
-          <h2 className="pb-2 font-display text-sm font-bold uppercase tracking-wide text-muted">
+          <h2 className="pb-2 eyebrow">
             Around the league
           </h2>
           <div className="space-y-2">

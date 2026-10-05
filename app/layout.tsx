@@ -1,6 +1,23 @@
 import type { Metadata, Viewport } from 'next';
+import { Inter, Anton } from 'next/font/google';
 import './globals.css';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
+
+// A tall condensed face for headings and scores — the broadcast-graphic voice
+// the app is going for. Body copy stays on Inter, which is far more readable at
+// small sizes on a phone.
+const anton = Anton({
+  subsets: ['latin'],
+  weight: '400',
+  variable: '--font-anton',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: {
@@ -8,11 +25,11 @@ export const metadata: Metadata = {
     template: '%s · Sunday Showdown',
   },
   description:
-    'Pick NFL games against your friends every week. Moneyline, spread and totals, one pick per game, settled automatically.',
+    'Pick NFL games against your friends every week. Every pick is a $10 bet — you score what it pays.',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    title: 'Sunday Showdown',
+    title: 'Showdown',
     statusBarStyle: 'black-translucent',
   },
   openGraph: {
@@ -22,10 +39,11 @@ export const metadata: Metadata = {
   },
   // A private friends-group app has no reason to be indexed.
   robots: { index: false, follow: false },
+  formatDetection: { telephone: false, date: false, address: false, email: false },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#000000',
+  themeColor: '#070506',
   width: 'device-width',
   initialScale: 1,
   // Not user-scalable: this is an installed app shell, and pinch-zoom on a
@@ -36,7 +54,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable} ${anton.variable}`}>
       <body>
         {children}
         <ServiceWorkerRegistration />

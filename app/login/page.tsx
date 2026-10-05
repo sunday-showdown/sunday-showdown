@@ -12,7 +12,7 @@ export default function LoginPage() {
   return (
     <main className="mx-auto min-h-dvh max-w-md px-5 safe-top">
       <header className="py-3">
-        <Link href="/" className="font-display text-lg font-extrabold tracking-tight">
+        <Link href="/" className="display text-[19px] leading-none">
           <Wordmark />
         </Link>
       </header>

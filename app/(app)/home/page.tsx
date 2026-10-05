@@ -10,6 +10,7 @@ import ModesHub from '@/components/ModesHub';
 import NotificationBell from '@/components/NotificationBell';
 
 export const metadata = { title: 'Home' };
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const user = (await getSessionUser())!;
@@ -28,13 +29,13 @@ export default async function HomePage() {
         <Greeting username={username} />
         <EmptyState
           title="Start a league"
-          body="Create a league and share the invite code, or join one a friend already set up."
+          body="Create one and share the code, or join one a friend already set up."
           action={
             <div className="flex flex-col gap-2">
-              <Link href="/leagues/new" className="btn-primary h-11 px-5 text-sm">
+              <Link href="/leagues/new" className="btn-primary px-5 text-sm">
                 Create a league
               </Link>
-              <Link href="/leagues/join" className="btn-ghost h-11 px-5 text-sm">
+              <Link href="/leagues/join" className="btn-ghost px-5 text-sm">
                 Join with a code
               </Link>
             </div>
@@ -58,79 +59,105 @@ export default async function HomePage() {
   const liveGames = week.games.filter((g) => g.status === 'in_progress');
   const nextGame = week.games.find((g) => g.status === 'scheduled');
 
-  // Each pick is worth its own price, so the total has to be read from the
-  // odds rather than a per-market constant.
   const oddsFor = (pick: { game_id: string; market_type: string; selection: string }) =>
     (week.oddsByGame[pick.game_id] ?? []).find(
       (o) => o.market_type === pick.market_type && o.selection === pick.selection,
     )?.american_odds ?? null;
 
-  const pickedPoints = week.myPicks.reduce((sum, pick) => sum + pointsForOdds(oddsFor(pick)), 0);
+  const atStake = week.myPicks.reduce((sum, pick) => sum + pointsForOdds(oddsFor(pick)), 0);
 
   return (
-    <main className="pb-4">
+    <main className="pb-6">
       <Greeting username={username} />
 
+      {/* The one thing that matters right now, sized like it. */}
       <section className="px-4">
-        <div className="card p-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+        <div className={`card overflow-hidden p-4 ${locked ? '' : 'card-hot'}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="eyebrow">
                 Week {league.current_week} · {league.name}
               </div>
-              <div className="font-display mt-1 text-2xl font-extrabold tracking-tight">
-                {locked ? 'Card locked' : `${picked} of ${total} picked`}
+              <div className="display mt-1.5 text-[34px] leading-[0.95]">
+                {locked
+                  ? 'Card locked'
+                  : picked === 0
+                    ? 'Make your picks'
+                    : `${picked} of ${total} in`}
               </div>
             </div>
+
             {!locked && week.challenge && (
-              <div className="text-right">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              <div className="shrink-0 text-right">
+                <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
                   Locks in
                 </div>
-                <div className="font-display text-lg font-extrabold tabnum text-brand">
+                <div className="display text-glow text-[26px] leading-none tabnum text-brand">
                   {formatCountdown(timeUntilLock(week.challenge.lock_time))}
                 </div>
               </div>
             )}
           </div>
 
-          {!locked && picked < total && (
-            <p className="mt-2 text-sm text-muted">
-              {total - picked} game{total - picked === 1 ? '' : 's'} still open.
-            </p>
-          )}
-          {locked && (
-            <p className="mt-2 text-sm text-muted">
-              {pickedPoints} points on the line this week.
-            </p>
+          {picked > 0 && (
+            <div className="mt-3 flex items-center gap-2">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-raised">
+                <div
+                  className="h-full rounded-full bg-brand transition-[width] duration-500"
+                  style={{ width: `${total > 0 ? (picked / total) * 100 : 0}%` }}
+                />
+              </div>
+              <span className="display text-[15px] leading-none tabnum text-brand">{atStake}</span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-muted">
+                to win
+              </span>
+            </div>
           )}
 
           <Link
-            href="/picks"
-            className={`${locked ? 'btn-ghost' : 'btn-primary'} mt-4 h-12 w-full text-sm`}
+            href={liveGames.length > 0 ? '/live' : '/picks'}
+            className={`${locked ? 'btn-ghost' : 'btn-primary'} mt-4 w-full text-[15px]`}
           >
-            {locked ? 'Review your card' : picked === 0 ? 'Make your picks' : 'Finish your card'}
+            {liveGames.length > 0
+              ? 'Watch it live'
+              : locked
+                ? 'Review your card'
+                : picked === 0
+                  ? 'Make your picks'
+                  : 'Finish your card'}
           </Link>
         </div>
       </section>
 
       {liveGames.length > 0 && (
         <section className="mt-5">
-          <h2 className="px-4 pb-2 font-display text-sm font-bold uppercase tracking-wide text-muted">
-            Live now
-          </h2>
-          <div className="space-y-2 px-4">
+          <div className="flex items-center justify-between px-4 pb-2">
+            <h2 className="eyebrow">
+              <span className="flex items-center gap-1.5 text-live">
+                <span className="h-1.5 w-1.5 animate-pulse-live rounded-full bg-live" />
+                Live now
+              </span>
+            </h2>
+            <Link href="/live" className="text-[11px] font-bold text-brand">
+              Track card →
+            </Link>
+          </div>
+
+          <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 pb-1">
             {liveGames.map((game) => (
-              <div key={game.id} className="card flex items-center justify-between px-4 py-3">
-                <span className="text-sm font-semibold">
-                  {game.away_abbr} @ {game.home_abbr}
-                </span>
-                <span className="flex items-center gap-2">
-                  <span className="h-1.5 w-1.5 animate-pulse-live rounded-full bg-live" />
-                  <span className="font-display text-base font-extrabold tabnum">
-                    {game.away_score ?? 0}–{game.home_score ?? 0}
-                  </span>
-                </span>
+              <div key={game.id} className="card w-[148px] shrink-0 px-3 py-2.5">
+                <div className="flex items-center justify-between text-[13px] font-bold">
+                  <span>{game.away_abbr}</span>
+                  <span className="display tabnum">{game.away_score ?? 0}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[13px] font-bold">
+                  <span>{game.home_abbr}</span>
+                  <span className="display tabnum">{game.home_score ?? 0}</span>
+                </div>
+                <div className="mt-1.5 flex items-center gap-1 text-[10px] font-bold text-live">
+                  <span className="h-1 w-1 animate-pulse-live rounded-full bg-live" />
+                  LIVE
+                </div>
               </div>
             ))}
           </div>
@@ -138,39 +165,52 @@ export default async function HomePage() {
       )}
 
       {liveGames.length === 0 && nextGame && (
-        <section className="mt-5 px-4">
+        <section className="mt-4 px-4">
           <div className="card flex items-center justify-between px-4 py-3">
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
                 Up next
               </div>
-              <div className="mt-0.5 text-sm font-semibold">
-                {nextGame.away_abbr} @ {nextGame.home_abbr}
+              <div className="display mt-0.5 text-[17px] leading-none">
+                {nextGame.away_abbr} <span className="text-muted">at</span> {nextGame.home_abbr}
               </div>
             </div>
-            <span className="text-sm text-muted">{formatKickoff(nextGame.start_time)}</span>
+            <span className="text-xs font-semibold text-muted">
+              {formatKickoff(nextGame.start_time)}
+            </span>
           </div>
         </section>
       )}
 
       {me && (
-        <section className="mt-5 px-4">
-          <div className="card flex items-center justify-between px-4 py-4">
+        <section className="mt-4 px-4">
+          <Link href="/standings" className="card flex items-center justify-between px-4 py-3.5">
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
                 Your season
               </div>
-              <div className="font-display mt-0.5 text-xl font-extrabold tabnum">
-                {me.totalPoints} pts
-                <span className="ml-2 text-sm font-bold text-muted">
-                  #{me.rank} of {standings.length}
-                </span>
+              <div className="display mt-0.5 flex items-baseline gap-2 text-[26px] leading-none">
+                {Math.round(me.totalPoints)}
+                <span className="text-[13px] text-muted">pts</span>
               </div>
             </div>
-            <Link href="/standings" className="btn-ghost h-9 px-3 text-xs">
-              Standings
-            </Link>
-          </div>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
+                  Rank
+                </div>
+                <div
+                  className={`display text-[26px] leading-none tabnum ${
+                    me.rank === 1 ? 'text-gold' : 'text-ink'
+                  }`}
+                >
+                  {me.rank}
+                  <span className="text-[13px] text-muted">/{standings.length}</span>
+                </div>
+              </div>
+              <span className="text-muted">›</span>
+            </div>
+          </Link>
         </section>
       )}
 
@@ -178,9 +218,7 @@ export default async function HomePage() {
 
       {week.myPicks.length > 0 && (
         <section className="mt-5">
-          <h2 className="px-4 pb-2 font-display text-sm font-bold uppercase tracking-wide text-muted">
-            This week&apos;s card
-          </h2>
+          <h2 className="eyebrow px-4 pb-2">This week&apos;s card</h2>
           <div className="space-y-2 px-4">
             {week.myPicks.map((pick) => {
               const game = week.games.find((g) => g.id === pick.game_id);
@@ -190,18 +228,20 @@ export default async function HomePage() {
               );
 
               return (
-                <div key={pick.game_id} className="card flex items-center justify-between px-4 py-3">
+                <div
+                  key={pick.game_id}
+                  className="card flex items-center justify-between px-4 py-2.5"
+                >
                   <div className="min-w-0">
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-                      {pick.market_type} ·{' '}
-                      <span className="text-brand">+{pointsForOdds(line?.american_odds ?? null)}</span>
+                    <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
+                      {pick.market_type} · {game.away_abbr} at {game.home_abbr}
                     </div>
-                    <div className="mt-0.5 truncate text-sm font-semibold">
+                    <div className="mt-0.5 truncate text-[15px] font-bold">
                       {describePick(pick, game, line?.line ?? null)}
                     </div>
                   </div>
-                  <span className="shrink-0 text-xs text-muted">
-                    {game.away_abbr}@{game.home_abbr}
+                  <span className="display shrink-0 text-[19px] leading-none tabnum text-brand">
+                    {pointsForOdds(line?.american_odds ?? null)}
                   </span>
                 </div>
               );
@@ -216,9 +256,10 @@ export default async function HomePage() {
 function Greeting({ username }: { username: string }) {
   return (
     <header className="flex items-center justify-between px-4 pb-3 pt-3 safe-top">
-      <h1 className="font-display text-2xl font-extrabold tracking-tight">
-        Hey, {username}
-      </h1>
+      <div className="min-w-0">
+        <div className="text-[11px] font-semibold text-muted">Welcome back</div>
+        <h1 className="display truncate text-[26px] leading-none">{username}</h1>
+      </div>
       <NotificationBell />
     </header>
   );

@@ -153,37 +153,26 @@ export default function PickSheet({
 
   return (
     <>
-      <div className="sticky top-0 z-30 border-b border-line bg-bg/95 px-4 py-3 backdrop-blur">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-              {locked ? 'Picks locked' : 'Locks in'}
-            </div>
-            <div
-              className={`font-display text-xl font-extrabold tabnum ${
-                locked ? 'text-muted' : 'text-ink'
-              }`}
-            >
-              {locked ? 'Final' : formatCountdown(timeUntilLock(lockTime, now))}
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-              Selected
-            </div>
-            <div className="font-display text-xl font-extrabold tabnum">
-              {totalSelected}
-              <span className="text-sm font-bold text-muted">/{games.length}</span>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-              Max pts
-            </div>
-            <div className="font-display text-xl font-extrabold tabnum text-brand">
-              {potentialPoints}
-            </div>
-          </div>
+      <div className="sticky top-0 z-30 border-b border-line/70 bg-bg/90 px-4 py-2.5 backdrop-blur-xl">
+        <div className="grid grid-cols-3 gap-2">
+          <Stat
+            label={locked ? 'Locked' : 'Locks in'}
+            value={locked ? 'FINAL' : formatCountdown(timeUntilLock(lockTime, now))}
+            tone={locked ? 'text-muted' : 'text-ink'}
+          />
+          <Stat
+            label="Picked"
+            value={`${totalSelected}/${games.length}`}
+            // Green only for a genuinely complete card; 0 of 0 is not finished.
+            tone={games.length > 0 && totalSelected === games.length ? 'text-win' : 'text-ink'}
+            align="center"
+          />
+          <Stat
+            label="To win"
+            value={String(potentialPoints)}
+            tone="text-brand text-glow"
+            align="right"
+          />
         </div>
       </div>
 
@@ -260,4 +249,27 @@ function describeRejections(rejected: { gameId: string; reason: string }[]): str
   const reasons = [...new Set(rejected.map((r) => REJECTION_TEXT[r.reason] ?? r.reason))];
   const count = rejected.length;
   return `${count} pick${count === 1 ? '' : 's'} not saved: ${reasons.join('; ')}.`;
+}
+
+/** A single readout in the sticky header. */
+function Stat({
+  label,
+  value,
+  tone = 'text-ink',
+  align = 'left',
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+  align?: 'left' | 'center' | 'right';
+}) {
+  const alignment =
+    align === 'center' ? 'items-center' : align === 'right' ? 'items-end' : 'items-start';
+
+  return (
+    <div className={`flex flex-col ${alignment}`}>
+      <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">{label}</span>
+      <span className={`display text-[22px] leading-[1.05] tabnum ${tone}`}>{value}</span>
+    </div>
+  );
 }

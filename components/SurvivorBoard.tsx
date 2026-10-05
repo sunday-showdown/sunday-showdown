@@ -68,7 +68,7 @@ export default function SurvivorBoard({
   if (!alive) {
     return (
       <div className="card mx-4 p-6 text-center">
-        <div className="font-display text-xl font-extrabold">You&apos;re out</div>
+        <div className="display text-[22px] leading-none">You&apos;re out</div>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           Knocked out of this pool. You can still watch it play out — and there
           is always next season.
@@ -116,7 +116,7 @@ export default function SurvivorBoard({
                   // eslint-disable-next-line @next/next/no-img-element -- ESPN CDN, already sized.
                   <img src={option.teamLogo} alt="" width={22} height={22} className="h-5.5 w-5.5 object-contain" />
                 )}
-                <span className="font-display text-base font-extrabold">{option.teamAbbr}</span>
+                <span className="display text-[17px] leading-none">{option.teamAbbr}</span>
                 {isCurrent && <span className="text-[10px] font-bold text-brand">PICKED</span>}
               </span>
               <span className="text-[11px] text-muted">

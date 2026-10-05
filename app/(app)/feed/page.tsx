@@ -70,7 +70,7 @@ export default async function FeedPage({
   return (
     <main className="pb-4">
       <header className="px-4 pb-2 pt-3 safe-top">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight">Feed</h1>
+        <h1 className="display text-[28px] leading-none">Feed</h1>
         <p className="text-xs text-muted">{league.name}</p>
       </header>
 

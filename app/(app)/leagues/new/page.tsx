@@ -36,7 +36,7 @@ export default function NewLeaguePage() {
   if (inviteCode) {
     return (
       <main className="px-5 pt-6 safe-top">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight">
+        <h1 className="display text-[28px] leading-none">
           {name} is live
         </h1>
         <p className="mt-2 text-sm text-muted">
@@ -47,7 +47,7 @@ export default function NewLeaguePage() {
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">
             Invite code
           </div>
-          <div className="font-display mt-2 text-4xl font-extrabold tracking-[0.2em] tabnum">
+          <div className="display mt-2 text-[42px] leading-none tracking-[0.2em]">
             {inviteCode}
           </div>
         </div>
@@ -72,7 +72,7 @@ export default function NewLeaguePage() {
 
   return (
     <main className="px-5 pt-6 safe-top">
-      <h1 className="font-display text-2xl font-extrabold tracking-tight">Create a league</h1>
+      <h1 className="display text-[28px] leading-none">Create a league</h1>
       <p className="mt-2 text-sm text-muted">
         You&apos;ll be the commissioner. You can invite people straight after.
       </p>

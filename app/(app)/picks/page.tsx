@@ -45,7 +45,7 @@ export default async function PicksPage({
     <main>
       <header className="flex items-center justify-between px-4 pb-1 pt-3 safe-top">
         <div>
-          <h1 className="font-display text-2xl font-extrabold tracking-tight">Week {week}</h1>
+          <h1 className="display text-[28px] leading-none">Week {week}</h1>
           <p className="text-xs text-muted">{league.name}</p>
         </div>
         {leagues.length > 1 && (
