@@ -7,6 +7,7 @@
 import { createAdminClient, isAuthorizedCron } from '@/lib/supabase/admin';
 import { fetchCurrentWeek } from '@/lib/espn/client';
 import { gradeWeek } from '@/lib/grading';
+import { gradeSurvivorWeek } from '@/lib/survivor';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -30,6 +31,8 @@ export async function GET(request: Request) {
         : await fetchCurrentWeek();
 
     const report = await gradeWeek(db, target.season, target.week);
+    const survivor = await gradeSurvivorWeek(db, target.season, target.week);
+    report.warnings.push(...survivor.warnings);
 
     const completedAt = new Date();
     await db.from('sync_logs').insert({
@@ -43,7 +46,7 @@ export async function GET(request: Request) {
       warnings: report.warnings,
     });
 
-    return Response.json({ ok: true, ...report });
+    return Response.json({ ok: true, ...report, survivor });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown error';
     await db.from('sync_logs').insert({
