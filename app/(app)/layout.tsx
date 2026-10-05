@@ -10,8 +10,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <>
-      {/* pb-14 clears the fixed bottom nav. */}
-      <div className="mx-auto max-w-md pb-14">{children}</div>
+      {/* The status bar is translucent and viewport-fit is cover, so the webview
+          extends under the notch. Every screen gets that inset here rather than
+          each page remembering to — forgetting it once cut the heading in half. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-x-0 top-0 z-50 bg-bg/80 backdrop-blur-sm"
+        style={{ height: 'env(safe-area-inset-top)' }}
+      />
+
+      {/* pb-16 clears the fixed bottom nav plus the home indicator. */}
+      <div
+        className="mx-auto max-w-md pb-16"
+        style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      >
+        {children}
+      </div>
+
       <BottomNav />
     </>
   );

@@ -7,6 +7,7 @@ const MODES = [
   { href: '/survivor', title: 'Survivor', blurb: 'One team a week. Never twice.', icon: '🛡️' },
   { href: '/td', title: 'TD Scorer', blurb: 'Call the end zone.', icon: '🏈' },
   { href: '/h2h', title: 'Head to head', blurb: 'Call someone out.', icon: '⚔️' },
+  { href: '/friends', title: 'Friends', blurb: 'Follow your rivals.', icon: '🤝' },
   { href: '/leagues', title: 'Leagues', blurb: 'Members and codes.', icon: '👥' },
   { href: '/pot', title: 'Pot', blurb: "Who's paid in.", icon: '💰' },
   { href: '/playground', title: 'Playground', blurb: 'Wild calls, pure bragging.', icon: '🎲' },

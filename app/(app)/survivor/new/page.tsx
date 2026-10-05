@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function NewSurvivorPoolPage() {
   return (
-    <Suspense fallback={<div className="px-5 pt-6 safe-top" />}>
+    <Suspense fallback={<div className="px-5 pt-6" />}>
       <NewPoolForm />
     </Suspense>
   );
@@ -45,7 +45,7 @@ function NewPoolForm() {
   };
 
   return (
-    <main className="px-5 pt-6 safe-top">
+    <main className="px-5 pt-6">
       <h1 className="display text-[28px] leading-none">Start a pool</h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
         Everyone picks one team a week to win. Get it wrong and you&apos;re out.

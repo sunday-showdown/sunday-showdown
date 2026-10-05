@@ -118,7 +118,7 @@ export default function PickCard({
                       aria-pressed={isSelected}
                       aria-label={`${label}${pays !== null ? `, pays ${pays}` : ''}`}
                       onClick={() => choose(market, side)}
-                      className={`tap relative flex flex-col items-center justify-center rounded-xl border
+                      className={`relative flex min-h-[58px] flex-col items-center justify-center rounded-xl border px-1 py-1.5
                         transition-[transform,background-color,box-shadow] duration-150
                         active:scale-[0.97] ${
                           isSelected
@@ -137,21 +137,30 @@ export default function PickCard({
                       }
                     >
                       <span className="text-[13px] font-bold leading-tight tabnum">{label}</span>
-                      <span
-                        className={`flex items-center gap-1.5 text-[10px] font-semibold leading-tight tabnum ${
-                          isSelected ? 'text-brand-ink/80' : 'text-muted'
-                        }`}
-                      >
-                        {price ?? '—'}
+
+                      {/* The payout and the price were running together and
+                          reading as one number. The payout is what the player
+                          actually scores, so it gets a pill of its own and the
+                          price sits underneath as context. */}
+                      <span className="mt-1 flex flex-col items-center gap-0.5">
                         {pays !== null && (
                           <span
-                            className={`display text-[12px] leading-none ${
-                              isSelected ? 'text-brand-ink' : 'text-brand'
+                            className={`display rounded-md px-1.5 py-[1px] text-[11px] leading-[1.25] tabnum ${
+                              isSelected
+                                ? 'bg-brand-ink/20 text-brand-ink'
+                                : 'bg-brand/15 text-brand'
                             }`}
                           >
-                            {pays}
+                            {pays} pts
                           </span>
                         )}
+                        <span
+                          className={`text-[9px] font-semibold leading-none tabnum ${
+                            isSelected ? 'text-brand-ink/70' : 'text-muted'
+                          }`}
+                        >
+                          {price ?? '—'}
+                        </span>
                       </span>
                     </button>
                   );

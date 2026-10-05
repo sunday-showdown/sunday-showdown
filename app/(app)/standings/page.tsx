@@ -35,7 +35,7 @@ export default async function StandingsPage({
 
   return (
     <main>
-      <header className="px-4 pb-2 pt-3 safe-top">
+      <header className="px-4 pb-2 pt-3">
         <h1 className="display text-[28px] leading-none">Standings</h1>
         <p className="text-xs text-muted">
           {league.name} · {league.season}

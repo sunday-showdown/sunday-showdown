@@ -255,7 +255,7 @@ export default async function HomePage() {
 
 function Greeting({ username }: { username: string }) {
   return (
-    <header className="flex items-center justify-between px-4 pb-3 pt-3 safe-top">
+    <header className="flex items-center justify-between px-4 pb-3 pt-3">
       <div className="min-w-0">
         <div className="text-[11px] font-semibold text-muted">Welcome back</div>
         <h1 className="display truncate text-[26px] leading-none">{username}</h1>

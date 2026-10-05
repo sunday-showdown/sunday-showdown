@@ -54,7 +54,7 @@ export default async function LeagueDetailPage({
 
   return (
     <main className="pb-6">
-      <header className="px-4 pb-3 pt-3 safe-top">
+      <header className="px-4 pb-3 pt-3">
         <Link href="/leagues" className="text-[11px] font-bold text-muted">
           ‹ Leagues
         </Link>

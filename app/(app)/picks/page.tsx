@@ -4,6 +4,7 @@ import { loadMyLeagues, loadWeek } from '@/lib/week';
 import PickSheet from '@/components/PickSheet';
 import WeekSelector from '@/components/WeekSelector';
 import EmptyState from '@/components/EmptyState';
+import LeagueSwitcher from '@/components/LeagueSwitcher';
 
 export const metadata = { title: 'Picks' };
 
@@ -43,19 +44,12 @@ export default async function PicksPage({
 
   return (
     <main>
-      <header className="flex items-center justify-between px-4 pb-1 pt-3 safe-top">
-        <div>
+      <header className="flex items-center justify-between gap-3 px-4 pb-1 pt-3">
+        <div className="min-w-0">
           <h1 className="display text-[28px] leading-none">Week {week}</h1>
-          <p className="text-xs text-muted">{league.name}</p>
+          <p className="truncate text-xs text-muted">{league.name}</p>
         </div>
-        {leagues.length > 1 && (
-          <Link
-            href={`/picks?week=${week}&league=${leagues[(leagues.indexOf(league) + 1) % leagues.length]!.id}`}
-            className="btn-ghost h-9 px-3 text-xs"
-          >
-            Switch league
-          </Link>
-        )}
+        <LeagueSwitcher leagues={leagues} currentId={league.id} />
       </header>
 
       <WeekSelector week={week} />

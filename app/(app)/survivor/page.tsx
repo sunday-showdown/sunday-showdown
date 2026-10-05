@@ -167,7 +167,7 @@ export default async function SurvivorPage({
 
 function Header({ league }: { league: string }) {
   return (
-    <header className="px-4 pb-2 pt-3 safe-top">
+    <header className="px-4 pb-2 pt-3">
       <h1 className="display text-[28px] leading-none">Survivor</h1>
       <p className="text-xs text-muted">{league}</p>
     </header>

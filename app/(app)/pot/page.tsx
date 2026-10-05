@@ -64,7 +64,7 @@ export default async function PotPage({
 
   return (
     <main className="pb-4">
-      <header className="px-4 pb-3 pt-3 safe-top">
+      <header className="px-4 pb-3 pt-3">
         <h1 className="display text-[28px] leading-none">Pot</h1>
         <p className="text-xs text-muted">{league.name} · {league.season}</p>
       </header>

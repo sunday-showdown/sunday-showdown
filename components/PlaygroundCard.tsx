@@ -221,8 +221,8 @@ function CallRow({ call, author }: { call: Call; author?: string }) {
     <div className={`card px-4 py-3 ${tone}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          {author && <div className="text-[11px] font-semibold text-brand">{author}</div>}
-          <div className="text-sm font-semibold">{call.targetName}</div>
+          {author && <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-brand">{author}</div>}
+          <div className="display text-[17px] leading-none">{call.targetName}</div>
           <div className="mt-0.5 text-sm leading-snug text-muted">{call.prediction}</div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">

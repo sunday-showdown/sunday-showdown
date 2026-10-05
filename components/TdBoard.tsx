@@ -25,6 +25,12 @@ interface Props {
 
 const POSITIONS = ['ALL', 'QB', 'RB', 'WR', 'TE'] as const;
 
+const BAND_LABEL: Record<string, { label: string; className: string }> = {
+  lock: { label: 'Likely', className: 'bg-win/15 text-win' },
+  solid: { label: 'Live', className: 'bg-raised text-muted' },
+  longshot: { label: 'Long shot', className: 'bg-brand/15 text-brand' },
+};
+
 export default function TdBoard({ challengeId, candidates, myPicks, locked }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -61,7 +67,7 @@ export default function TdBoard({ challengeId, candidates, myPicks, locked }: Pr
       }
       setMessage({
         tone: 'ok',
-        text: clear ? `${candidate.name} removed.` : `${candidate.name} added for +${candidate.points}.`,
+        text: clear ? `${candidate.name} removed.` : `${candidate.name} in for ${candidate.points}.`,
       });
       router.refresh();
     } catch {
@@ -72,18 +78,28 @@ export default function TdBoard({ challengeId, candidates, myPicks, locked }: Pr
   };
 
   const staked = myPicks.reduce((sum, p) => sum + p.points, 0);
+  const mine = candidates.filter((c) => picked.has(c.playerId));
 
   return (
     <>
-      <div className="sticky top-0 z-30 border-b border-line bg-bg/95 px-4 py-3 backdrop-blur">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">Picked</div>
-            <div className="display text-[22px] leading-none tabnum">{myPicks.length}</div>
+      <div
+        style={{ top: 'env(safe-area-inset-top)' }}
+        className="sticky z-30 border-b border-line/70 bg-bg/90 px-4 py-2.5 backdrop-blur-xl"
+      >
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col">
+            <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
+              Players in
+            </span>
+            <span className="display text-[22px] leading-[1.05] tabnum">{myPicks.length}</span>
           </div>
-          <div className="text-right">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted">On the line</div>
-            <div className="display text-[22px] leading-none tabnum text-brand">+{staked}</div>
+          <div className="flex flex-col items-end">
+            <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
+              To win
+            </span>
+            <span className="display text-glow text-[22px] leading-[1.05] tabnum text-brand">
+              {staked}
+            </span>
           </div>
         </div>
 
@@ -92,7 +108,9 @@ export default function TdBoard({ challengeId, candidates, myPicks, locked }: Pr
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search a player"
           aria-label="Search a player"
-          className="field mt-3 !min-h-10"
+          autoCapitalize="none"
+          autoCorrect="off"
+          className="field mt-2.5 !min-h-11"
         />
 
         <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto">
@@ -102,7 +120,7 @@ export default function TdBoard({ challengeId, candidates, myPicks, locked }: Pr
               type="button"
               onClick={() => setPosition(p)}
               aria-pressed={position === p}
-              className={`h-7 shrink-0 rounded-lg px-3 text-xs font-bold transition-colors ${
+              className={`display h-8 shrink-0 rounded-lg px-3.5 text-[12px] leading-none transition-colors ${
                 position === p ? 'bg-brand text-brand-ink' : 'bg-raised text-muted'
               }`}
             >
@@ -123,58 +141,120 @@ export default function TdBoard({ challengeId, candidates, myPicks, locked }: Pr
         </p>
       )}
 
-      <div className="mt-3 space-y-2 px-4">
-        {visible.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted">No players match that.</p>
-        ) : (
-          visible.map((candidate) => {
-            const mine = picked.get(candidate.playerId);
-            return (
-              <div
+      {mine.length > 0 && query.trim() === '' && (
+        <section className="mt-3 px-4">
+          <h2 className="eyebrow pb-2">Your card</h2>
+          <div className="space-y-2">
+            {mine.map((candidate) => (
+              <PlayerRow
                 key={candidate.playerId}
-                className={`card flex items-center gap-3 px-3 py-2.5 ${mine ? 'border-brand/50' : ''}`}
-              >
-                {candidate.headshotUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- ESPN CDN headshot.
-                  <img
-                    src={candidate.headshotUrl}
-                    alt=""
-                    width={36}
-                    height={36}
-                    className="h-9 w-9 shrink-0 rounded-full bg-raised object-cover"
-                  />
-                ) : (
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-raised text-[10px] font-bold">
-                    {candidate.position}
-                  </span>
-                )}
+                candidate={candidate}
+                picked
+                busy={busy === candidate.playerId}
+                locked={locked}
+                onAct={() => act(candidate, true)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold">{candidate.name}</div>
-                  <div className="text-[11px] text-muted">
-                    {candidate.position} · {candidate.teamAbbr} v {candidate.opponentAbbr}
-                    {candidate.americanOdds !== null && ` · ${formatOdds(candidate.americanOdds)}`}
-                  </div>
-                </div>
+      <section className="mt-4 px-4">
+        <h2 className="eyebrow pb-2">
+          {position === 'ALL' ? 'All players' : position} · cheapest first
+        </h2>
 
-                <button
-                  type="button"
-                  disabled={locked || busy === candidate.playerId}
-                  onClick={() => act(candidate, Boolean(mine))}
-                  className={`flex h-9 shrink-0 items-center gap-1 rounded-xl px-3 text-sm font-bold transition-colors ${
-                    mine
-                      ? 'bg-brand text-brand-ink'
-                      : 'border border-line bg-raised text-brand disabled:opacity-40'
-                  }`}
-                >
-                  {mine ? '✓' : '+'}
-                  {candidate.points}
-                </button>
-              </div>
-            );
-          })
-        )}
-      </div>
+        <div className="space-y-2">
+          {visible.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted">No players match that.</p>
+          ) : (
+            visible.map((candidate) => (
+              <PlayerRow
+                key={candidate.playerId}
+                candidate={candidate}
+                picked={picked.has(candidate.playerId)}
+                busy={busy === candidate.playerId}
+                locked={locked}
+                onAct={() => act(candidate, picked.has(candidate.playerId))}
+              />
+            ))
+          )}
+        </div>
+      </section>
     </>
+  );
+}
+
+function PlayerRow({
+  candidate,
+  picked,
+  busy,
+  locked,
+  onAct,
+}: {
+  candidate: TdCandidate;
+  picked: boolean;
+  busy: boolean;
+  locked: boolean;
+  onAct: () => void;
+}) {
+  const band = BAND_LABEL[candidate.band] ?? BAND_LABEL.solid!;
+
+  return (
+    <div className={`card flex items-center gap-3 px-3 py-2.5 ${picked ? 'card-hot' : ''}`}>
+      {candidate.headshotUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- ESPN CDN headshot.
+        <img
+          src={candidate.headshotUrl}
+          alt=""
+          width={40}
+          height={40}
+          className="h-10 w-10 shrink-0 rounded-full bg-raised object-cover"
+        />
+      ) : (
+        <span className="display flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-raised text-[11px] text-muted">
+          {candidate.position}
+        </span>
+      )}
+
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[15px] font-bold leading-tight">{candidate.name}</div>
+        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-muted">
+          <span className="font-semibold">{candidate.position}</span>
+          <span>·</span>
+          <span>
+            {candidate.teamAbbr} v {candidate.opponentAbbr}
+          </span>
+        </div>
+        <div className="mt-1 flex items-center gap-1.5">
+          <span className={`chip ${band.className}`}>{band.label}</span>
+          {candidate.americanOdds !== null && (
+            <span className="text-[10px] font-semibold tabnum text-muted">
+              {formatOdds(candidate.americanOdds)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        disabled={locked || busy}
+        onClick={onAct}
+        aria-pressed={picked}
+        aria-label={
+          picked ? `Remove ${candidate.name}` : `Add ${candidate.name} for ${candidate.points} points`
+        }
+        className={`flex h-12 w-14 shrink-0 flex-col items-center justify-center rounded-xl text-[11px] font-bold transition-colors disabled:opacity-40 ${
+          picked
+            ? 'bg-brand text-brand-ink'
+            : 'border border-line bg-raised text-brand active:bg-line/50'
+        }`}
+      >
+        <span className="display text-[17px] leading-none">{candidate.points}</span>
+        <span className={`text-[9px] leading-none ${picked ? 'text-brand-ink/75' : 'text-muted'}`}>
+          {picked ? 'IN' : 'PTS'}
+        </span>
+      </button>
+    </div>
   );
 }

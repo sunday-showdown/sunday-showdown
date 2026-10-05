@@ -153,7 +153,8 @@ export default function PickSheet({
 
   return (
     <>
-      <div className="sticky top-0 z-30 border-b border-line/70 bg-bg/90 px-4 py-2.5 backdrop-blur-xl">
+      <div style={{ top: 'env(safe-area-inset-top)' }}
+        className="sticky z-30 border-b border-line/70 bg-bg/90 px-4 py-2.5 backdrop-blur-xl">
         <div className="grid grid-cols-3 gap-2">
           <Stat
             label={locked ? 'Locked' : 'Locks in'}
