@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
-import { loadMyLeagues } from '@/lib/week';
+import { resolveLeague } from '@/lib/league';
 import { isAlive } from '@/lib/survivor';
 import { loadPot } from '@/lib/pot';
 import SurvivorBoard, { type SurvivorGameOption } from '@/components/SurvivorBoard';
 import EmptyState from '@/components/EmptyState';
 import AppBar from '@/components/AppBar';
+import LeagueSwitcher from '@/components/LeagueSwitcher';
 import ModePot from '@/components/ModePot';
 import ModeChatButton from '@/components/ModeChatButton';
 import type { SurvivorPickResult } from '@/lib/types';
@@ -15,14 +16,14 @@ export const metadata = { title: 'Survivor' };
 export default async function SurvivorPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pool?: string; week?: string }>;
+  searchParams: Promise<{ pool?: string; week?: string; league?: string }>;
 }) {
   const user = (await getSessionUser())!;
   const params = await searchParams;
   const supabase = await createServerSupabase();
 
-  const leagues = await loadMyLeagues(supabase, user.id);
-  if (leagues.length === 0) {
+  const { leagues, league } = await resolveLeague(supabase, user.id, params.league);
+  if (!league) {
     return (
       <main>
         <AppBar title="Survivor" back="/home" />
@@ -35,7 +36,6 @@ export default async function SurvivorPage({
     );
   }
 
-  const league = leagues[0]!;
 
   const { data: pools } = await supabase
     .from('survivor_pools')
@@ -48,7 +48,7 @@ export default async function SurvivorPage({
   if (!pool) {
     return (
       <main>
-        <Header league={league.name} />
+        <Header league={league.name} leagues={leagues} currentId={league.id} />
         <EmptyState
           title="No pool running"
           body="Start one and everyone in the league can enter. Pick one team a week to win — you cannot pick the same team twice."
@@ -112,7 +112,7 @@ export default async function SurvivorPage({
 
   return (
     <main className="pb-4">
-      <Header league={league.name} />
+      <Header league={league.name} leagues={leagues} currentId={league.id} />
 
       <section className="px-4">
         <div className="card flex items-center justify-between px-4 py-3">
@@ -179,8 +179,23 @@ export default async function SurvivorPage({
   );
 }
 
-function Header({ league }: { league: string }) {
-  return <AppBar title="Survivor" subtitle={`${league} · one team a week, never twice`} back="/home" />;
+function Header({
+  league,
+  leagues,
+  currentId,
+}: {
+  league: string;
+  leagues: { id: string; name: string }[];
+  currentId: string;
+}) {
+  return (
+    <AppBar
+      title="Survivor"
+      subtitle={`${league} · one team a week, never twice`}
+      back="/home"
+      trailing={<LeagueSwitcher leagues={leagues} currentId={currentId} />}
+    />
+  );
 }
 
 function CreatePoolLink({ season, leagueId }: { season: number; leagueId: string }) {

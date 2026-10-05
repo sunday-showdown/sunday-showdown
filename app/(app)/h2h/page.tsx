@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
-import { loadMyLeagues } from '@/lib/week';
+import { resolveLeague } from '@/lib/league';
 import { canonicalPair } from '@/lib/h2h';
 import { loadPot } from '@/lib/pot';
 import H2HPanel, { type Challenge, type LeagueMate } from '@/components/H2HPanel';
@@ -22,8 +22,8 @@ export default async function H2HPage({
   const params = await searchParams;
   const supabase = await createServerSupabase();
 
-  const leagues = await loadMyLeagues(supabase, user.id);
-  if (leagues.length === 0) {
+  const { leagues, league } = await resolveLeague(supabase, user.id, params.league);
+  if (!league) {
     return (
       <main>
         <AppBar title="Head to head" back="/home" />
@@ -36,7 +36,6 @@ export default async function H2HPage({
     );
   }
 
-  const league = leagues.find((l) => l.id === params.league) ?? leagues[0]!;
 
   const [{ data: members }, { data: rows }, { data: records }] = await Promise.all([
     supabase.from('league_members').select('user_id').eq('league_id', league.id),

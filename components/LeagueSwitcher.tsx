@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { LEAGUE_COOKIE } from '@/lib/league-cookie';
 
 export interface SwitchableLeague {
   id: string;
@@ -14,6 +15,11 @@ export interface SwitchableLeague {
  * knows how to use, it handles long league names without a custom popover, and
  * it is accessible for nothing. The styled box is a presentational overlay
  * behind a transparent, full-size control.
+ *
+ * Switching writes the choice to a cookie as well as navigating, so it is still
+ * in force on the next screen and on the next cold start. Without that the
+ * selection lived only in the query string and was dropped by the first link
+ * that did not carry it.
  */
 export default function LeagueSwitcher({
   leagues,
@@ -31,9 +37,19 @@ export default function LeagueSwitcher({
   const current = leagues.find((l) => l.id === currentId) ?? leagues[0]!;
 
   const change = (id: string) => {
+    // A year, because this is a preference and not a session. SameSite=Lax so
+    // it travels with the navigation that follows; no sensitive value is in it.
+    document.cookie = `${LEAGUE_COOKIE}=${encodeURIComponent(id)}; path=/; max-age=31536000; samesite=lax`;
+
+    // Drop ?league= rather than rewriting it. The cookie is now the source of
+    // truth, and leaving the parameter behind would pin this screen to one
+    // league while the rest of the app moved on.
     const params = new URLSearchParams(searchParams.toString());
-    params.set('league', id);
-    router.push(`${pathname}?${params.toString()}`);
+    params.delete('league');
+    const query = params.toString();
+
+    router.push(query ? `${pathname}?${query}` : pathname);
+    router.refresh();
   };
 
   return (

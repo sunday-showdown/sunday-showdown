@@ -24,8 +24,8 @@ Built:
 - **Notifications** — in-app bell and web push
 - **PWA** — installable, read-only offline for standings and profile
 
-Optional and off by default: GIF search, which needs a free Tenor key. Without
-it the picker says so and GIFs can still be sent as file uploads.
+Optional and off by default: GIF **search**, which needs a free Tenor key —
+sending a GIF as a file works without one. Setup is in §2b.
 
 ## Setup
 
@@ -73,6 +73,33 @@ Two of these are optional and the app degrades rather than breaks without
 them. With no VAPID keys, `pushToUsers` reports `skipped` and everything else
 runs normally. With no Tenor key, `/api/gifs` reports `configured: false`, the
 picker says GIF search is switched off, and GIFs still send as file uploads.
+
+### 2b. GIF search (optional)
+
+Chat sends GIFs with no key at all — the attach button uploads a `.gif` like any
+other image. **Search** is the part that needs one, because Tenor is the only
+free GIF index and it requires a key, which cannot live in the browser.
+
+It is free, takes about two minutes, and needs no card:
+
+1. Go to **console.cloud.google.com** and sign in.
+2. Create a project, or pick an existing one, from the dropdown at the top.
+3. Open **APIs & Services → Library**, search for **Tenor API**, open it and
+   press **Enable**.
+4. Go to **APIs & Services → Credentials → Create credentials → API key**.
+5. Copy the key. Optionally press **Edit API key** and, under *API
+   restrictions*, restrict it to the Tenor API — worth doing, since the key is
+   only ever used for this.
+
+Then put it in two places:
+
+```bash
+echo 'TENOR_API_KEY=your-key-here' >> .env.local
+npx vercel env add TENOR_API_KEY
+```
+
+Until it exists, `/api/gifs` replies `configured: false`, the picker says search
+is switched off and points at the attach button, and nothing errors.
 
 ### 3. Run it
 

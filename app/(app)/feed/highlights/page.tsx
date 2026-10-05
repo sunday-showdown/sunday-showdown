@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
-import { loadMyLeagues } from '@/lib/week';
+import { resolveLeague } from '@/lib/league';
 import FeedTabs from '@/components/FeedTabs';
 import AppBar from '@/components/AppBar';
 import LeagueSwitcher from '@/components/LeagueSwitcher';
@@ -19,8 +19,8 @@ export default async function HighlightsPage({
   const params = await searchParams;
   const supabase = await createServerSupabase();
 
-  const leagues = await loadMyLeagues(supabase, user.id);
-  if (leagues.length === 0) {
+  const { leagues, league } = await resolveLeague(supabase, user.id, params.league);
+  if (!league) {
     return (
       <main>
         <AppBar title="Highlights" back="/feed" />
@@ -33,7 +33,6 @@ export default async function HighlightsPage({
     );
   }
 
-  const league = leagues.find((l) => l.id === params.league) ?? leagues[0]!;
 
   const [{ data: activity }, { data: following }] = await Promise.all([
     supabase

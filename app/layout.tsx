@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Anton } from 'next/font/google';
 import './globals.css';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+import SafeArea from '@/components/SafeArea';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -30,7 +31,15 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: 'Showdown',
-    statusBarStyle: 'black-translucent',
+    // NOT black-translucent. That tells iOS to run the content under the status
+    // bar, and iOS then reports env(safe-area-inset-top) as 0 regardless — a
+    // WebKit bug old enough to have outlived several iOS versions. Every
+    // heading in the installed app ended up under the clock, and the padding
+    // could not be fixed because the value it read was the thing that was
+    // wrong. `black` makes iOS reserve the strip itself, which is the one way
+    // to be certain nothing is drawn beneath it. components/SafeArea.tsx is the
+    // measured fallback for anywhere this still does not hold.
+    statusBarStyle: 'black',
   },
   openGraph: {
     title: 'Sunday Showdown',
@@ -57,6 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${inter.variable} ${anton.variable}`}>
       <body>
         {children}
+        <SafeArea />
         <ServiceWorkerRegistration />
       </body>
     </html>

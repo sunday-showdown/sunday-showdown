@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
-import { loadMyLeagues } from '@/lib/week';
+import { resolveLeague } from '@/lib/league';
 import { loadPot } from '@/lib/pot';
 import TdBoard, { type TdCandidate } from '@/components/TdBoard';
 import WeekSelector from '@/components/WeekSelector';
 import EmptyState from '@/components/EmptyState';
 import AppBar from '@/components/AppBar';
+import LeagueSwitcher from '@/components/LeagueSwitcher';
 import ModePot from '@/components/ModePot';
 import ModeChatButton from '@/components/ModeChatButton';
 import { isCardLocked } from '@/lib/contest';
@@ -22,8 +23,8 @@ export default async function TdPage({
   const params = await searchParams;
   const supabase = await createServerSupabase();
 
-  const leagues = await loadMyLeagues(supabase, user.id);
-  if (leagues.length === 0) {
+  const { leagues, league } = await resolveLeague(supabase, user.id, params.league);
+  if (!league) {
     return (
       <main>
         <AppBar title="TD Scorer" back="/home" />
@@ -36,7 +37,6 @@ export default async function TdPage({
     );
   }
 
-  const league = leagues.find((l) => l.id === params.league) ?? leagues[0]!;
   const requested = Number(params.week);
   const week =
     Number.isInteger(requested) && requested >= 1 && requested <= 18 ? requested : league.current_week;
@@ -52,7 +52,8 @@ export default async function TdPage({
   if (!challenge) {
     return (
       <main>
-        <Header league={league.name} week={week} />
+        <Header league={league.name} leagues={leagues} currentId={league.id} />
+      <WeekSelector week={week} />
         <EmptyState title={`Week ${week} isn't open yet`} body="Contests open once the schedule is published." />
       </main>
     );
@@ -115,7 +116,8 @@ export default async function TdPage({
 
   return (
     <main className="pb-4">
-      <Header league={league.name} week={week} />
+      <Header league={league.name} leagues={leagues} currentId={league.id} />
+      <WeekSelector week={week} />
 
       {candidates.length === 0 ? (
         <EmptyState
@@ -143,13 +145,21 @@ export default async function TdPage({
   );
 }
 
-function Header({ league, week }: { league: string; week: number }) {
+function Header({
+  league,
+  leagues,
+  currentId,
+}: {
+  league: string;
+  leagues: { id: string; name: string }[];
+  currentId: string;
+}) {
   return (
     <AppBar
       title="TD Scorer"
       subtitle={`${league} · pick anyone to find the end zone`}
       back="/home"
-      below={<WeekSelector week={week} />}
+      trailing={<LeagueSwitcher leagues={leagues} currentId={currentId} />}
     />
   );
 }

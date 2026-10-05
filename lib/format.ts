@@ -127,3 +127,29 @@ export function formatRelative(iso: string | null | undefined): string {
   if (seconds < 604_800) return `${Math.round(seconds / 86_400)}d`;
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(iso));
 }
+
+/**
+ * How a pick reads.
+ *
+ * One function because there were three copies — home, the shared card and the
+ * image each described the same row slightly differently, which is how "KC ML"
+ * and "KC to win" ended up next to each other on the same screen.
+ *
+ * `short` is for anywhere the row is tight: a chat bubble, a list, an image.
+ */
+export function describePick(
+  market: string,
+  selection: string,
+  game: { home_abbr: string; away_abbr: string },
+  line: number | null | undefined,
+  style: 'long' | 'short' = 'long',
+): string {
+  if (market === 'total') {
+    const side = selection === 'over' ? 'Over' : 'Under';
+    return `${side} ${line ?? ''}`.trim();
+  }
+
+  const abbr = selection === 'home' ? game.home_abbr : game.away_abbr;
+  if (market === 'moneyline') return style === 'short' ? `${abbr} ML` : `${abbr} to win`;
+  return `${abbr} ${formatSpread(line ?? null)}`;
+}

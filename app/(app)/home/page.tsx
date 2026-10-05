@@ -1,14 +1,16 @@
 import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
-import { loadMyLeagues, loadWeek } from '@/lib/week';
-import { loadSeasonStandings } from '@/lib/standings';
+import { resolveLeague } from '@/lib/league';
+import { loadDashboard } from '@/lib/dashboard';
+import { loadWeek } from '@/lib/week';
 import { isCardLocked, timeUntilLock } from '@/lib/contest';
-import { formatCountdown, formatKickoff, formatSpread } from '@/lib/format';
+import { formatCountdown, formatKickoff, describePick } from '@/lib/format';
 import { pointsForOdds } from '@/lib/odds';
 import EmptyState from '@/components/EmptyState';
 import ModesHub from '@/components/ModesHub';
 import NotificationBell from '@/components/NotificationBell';
 import AppBar from '@/components/AppBar';
+import LeagueCards from '@/components/LeagueCards';
 
 export const metadata = { title: 'Home' };
 export const dynamic = 'force-dynamic';
@@ -17,17 +19,18 @@ export default async function HomePage() {
   const user = (await getSessionUser())!;
   const supabase = await createServerSupabase();
 
-  const [leagues, profileResult] = await Promise.all([
-    loadMyLeagues(supabase, user.id),
+  const [{ league }, { dashboard }, profileResult] = await Promise.all([
+    resolveLeague(supabase, user.id),
+    loadDashboard(supabase, user.id),
     supabase.from('profiles').select('username').eq('user_id', user.id).maybeSingle(),
   ]);
 
   const username = (profileResult.data?.username as string | undefined) ?? 'there';
 
-  if (leagues.length === 0) {
+  if (!league) {
     return (
       <main>
-        <Greeting username={username} />
+        <AppBar title={username} subtitle="Welcome back" trailing={<NotificationBell />} />
         <EmptyState
           title="Start a league"
           body="Create one and share the code, or join one a friend already set up."
@@ -46,19 +49,13 @@ export default async function HomePage() {
     );
   }
 
-  const league = leagues[0]!;
-  const [week, standings] = await Promise.all([
-    loadWeek(supabase, user.id, league, league.current_week),
-    loadSeasonStandings(supabase, league.id, league.season),
-  ]);
+  const week = await loadWeek(supabase, user.id, league, league.current_week);
 
   const locked = isCardLocked(week.challenge?.lock_time ?? null);
   const picked = week.myPicks.length;
   const total = week.games.length;
-  const me = standings.find((s) => s.userId === user.id);
-
-  const liveGames = week.games.filter((g) => g.status === 'in_progress');
   const nextGame = week.games.find((g) => g.status === 'scheduled');
+  const { liveGames, cards } = dashboard;
 
   const oddsFor = (pick: { game_id: string; market_type: string; selection: string }) =>
     (week.oddsByGame[pick.game_id] ?? []).find(
@@ -67,11 +64,27 @@ export default async function HomePage() {
 
   const atStake = week.myPicks.reduce((sum, pick) => sum + pointsForOdds(oddsFor(pick)), 0);
 
+  // What is left to do across every league, which is the question the top of
+  // this screen exists to answer.
+  const outstanding = cards.filter(
+    (card) => card.slate > 0 && card.picked < card.slate && card.lockTime !== null &&
+      new Date(card.lockTime).getTime() > Date.now(),
+  ).length;
+
   return (
     <main className="pb-6">
-      <Greeting username={username} />
+      <AppBar
+        title={username}
+        subtitle={
+          outstanding > 0
+            ? `${outstanding} card${outstanding === 1 ? '' : 's'} still open`
+            : 'Welcome back'
+        }
+        trailing={<NotificationBell />}
+      />
 
-      {/* The one thing that matters right now, sized like it. */}
+      {/* The one thing that matters right now, in the league you are in, sized
+          like it. */}
       <section className="px-4">
         <div className={`card overflow-hidden p-4 ${locked ? '' : 'card-hot'}`}>
           <div className="flex items-start justify-between gap-3">
@@ -183,37 +196,16 @@ export default async function HomePage() {
         </section>
       )}
 
-      {me && (
-        <section className="mt-4 px-4">
-          <Link href="/standings" className="card flex items-center justify-between px-4 py-3.5">
-            <div>
-              <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
-                Your season
-              </div>
-              <div className="display mt-0.5 flex items-baseline gap-2 text-[26px] leading-none">
-                {Math.round(me.totalPoints)}
-                <span className="text-[13px] text-muted">pts</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
-                  Rank
-                </div>
-                <div
-                  className={`display text-[26px] leading-none tabnum ${
-                    me.rank === 1 ? 'text-gold' : 'text-ink'
-                  }`}
-                >
-                  {me.rank}
-                  <span className="text-[13px] text-muted">/{standings.length}</span>
-                </div>
-              </div>
-              <span className="text-muted">›</span>
-            </div>
+      {/* Every league, not just the active one. Tapping switches. */}
+      <section className="mt-5">
+        <div className="flex items-center justify-between px-4 pb-2">
+          <h2 className="eyebrow">{cards.length > 1 ? 'Your leagues' : 'Your league'}</h2>
+          <Link href="/leagues" className="text-[11px] font-bold text-brand">
+            Manage →
           </Link>
-        </section>
-      )}
+        </div>
+        <LeagueCards cards={cards} activeId={league.id} />
+      </section>
 
       <ModesHub />
 
@@ -238,7 +230,7 @@ export default async function HomePage() {
                       {pick.market_type} · {game.away_abbr} at {game.home_abbr}
                     </div>
                     <div className="mt-0.5 truncate text-[15px] font-bold">
-                      {describePick(pick, game, line?.line ?? null)}
+                      {describePick(pick.market_type, pick.selection, game, line?.line)}
                     </div>
                   </div>
                   <span className="display shrink-0 text-[19px] leading-none tabnum text-brand">
@@ -252,19 +244,4 @@ export default async function HomePage() {
       )}
     </main>
   );
-}
-
-function Greeting({ username }: { username: string }) {
-  return <AppBar title={username} subtitle="Welcome back" trailing={<NotificationBell />} />;
-}
-
-function describePick(
-  pick: { market_type: string; selection: string },
-  game: { home_abbr: string; away_abbr: string },
-  line: number | null,
-): string {
-  const abbr = pick.selection === 'home' ? game.home_abbr : game.away_abbr;
-  if (pick.market_type === 'moneyline') return `${abbr} to win`;
-  if (pick.market_type === 'spread') return `${abbr} ${formatSpread(line)}`;
-  return `${pick.selection === 'over' ? 'Over' : 'Under'} ${line ?? ''}`.trim();
 }

@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import Sheet from './Sheet';
+import { useSaveImage } from './SaveImageButton';
+import { renderCardImage, cardImageName, type CardImageInput } from '@/lib/cardImage';
 import type { ChannelSummary } from '@/lib/chat';
 
 /**
@@ -15,23 +17,31 @@ import type { ChannelSummary } from '@/lib/chat';
  *
  * It asks which room rather than always using #general, because a card posted
  * in trash-talk is a different act from one posted in the main channel.
+ *
+ * The same sheet saves the card as a picture, for the group chats and the
+ * stories this app is not in.
  */
 export default function ShareCardButton({
   challengeId,
   channels,
   pickCount,
+  image,
 }: {
   challengeId: string;
   channels: readonly ChannelSummary[];
   pickCount: number;
+  image: CardImageInput;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const { save, busy: saving, error: saveError } = useSaveImage();
 
   const rooms = channels.filter((channel) => channel.kind !== 'dm');
-  if (pickCount === 0 || rooms.length === 0) return null;
+  // The picture is worth offering even with nowhere to post it, but a card with
+  // no picks on it is not worth either.
+  if (pickCount === 0) return null;
 
   const share = async (channelId: string) => {
     setBusy(channelId);
@@ -78,7 +88,7 @@ export default function ShareCardButton({
               Show your work
             </div>
             <div className="mt-0.5 text-[13.5px] font-bold">
-              Share your card with the league
+              Share your card, or save it as a picture
             </div>
           </div>
           <span className="shrink-0 text-muted">›</span>
@@ -91,11 +101,37 @@ export default function ShareCardButton({
           wins and losses as the week grades.
         </p>
 
-        {error && (
+        {(error || saveError) && (
           <p role="alert" className="mb-3 rounded-xl bg-loss/15 px-3 py-2 text-[12px] text-loss">
-            {error}
+            {error || saveError}
           </p>
         )}
+
+        <button
+          type="button"
+          disabled={saving}
+          onClick={async () => {
+            const blob = await renderCardImage(image);
+            await save(blob, cardImageName(image.username, image.week));
+          }}
+          className="card mb-3 flex w-full items-center gap-3 px-3.5 py-3 text-left active:bg-raised disabled:opacity-60"
+        >
+          <span
+            aria-hidden="true"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-win/15 text-[16px]"
+          >
+            🖼️
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[14px] font-bold">Save as a picture</div>
+            <div className="text-[11px] text-muted">
+              {saving ? 'Drawing it…' : 'For Instagram, iMessage, anywhere else'}
+            </div>
+          </div>
+          <span className="shrink-0 text-muted">›</span>
+        </button>
+
+        {rooms.length > 0 && <h3 className="eyebrow pb-2">Post to a channel</h3>}
 
         <div className="space-y-1.5 pb-3">
           {rooms.map((channel) => (

@@ -5,7 +5,7 @@
 // show lines that have since moved. Standings and past results are safe to show
 // stale, so they fall back to cache with a banner rendered by the page.
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL = `shell-${VERSION}`;
 const PAGES = `pages-${VERSION}`;
 
@@ -19,7 +19,7 @@ const PRECACHE = ['/offline', '/icon.svg', '/manifest.webmanifest'];
 const IS_DEV = ['localhost', '127.0.0.1', '[::1]'].includes(self.location.hostname);
 
 // Pages worth showing stale rather than showing nothing.
-const CACHEABLE_PAGES = ['/standings', '/profile', '/home'];
+const CACHEABLE_PAGES = ['/ranks', '/profile', '/home'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

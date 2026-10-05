@@ -10,8 +10,6 @@ interface Props {
   back?: string;
   /** Actions pinned to the right of the compact bar — bell, switcher, menu. */
   trailing?: ReactNode;
-  /** A segmented control or filter row that should stick under the bar. */
-  below?: ReactNode;
   /** Hide the large title entirely, for a screen that needs the height. */
   compact?: boolean;
 }
@@ -29,7 +27,7 @@ interface Props {
  * max() rather than the raw inset: in a Safari tab the inset is 0, and the bar
  * still needs its own breathing room there.
  */
-export default function AppBar({ title, subtitle, back, trailing, below, compact }: Props) {
+export default function AppBar({ title, subtitle, back, trailing, compact }: Props) {
   const [scrolled, setScrolled] = useState(false);
   const bar = useRef<HTMLElement>(null);
 
@@ -76,7 +74,7 @@ export default function AppBar({ title, subtitle, back, trailing, below, compact
             ? 'bg-bg/80 shadow-[0_1px_0_0_rgb(var(--line)/0.8)] backdrop-blur-xl'
             : 'bg-transparent'
         }`}
-        style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}
+        style={{ paddingTop: 'max(var(--safe-top, env(safe-area-inset-top)), 0.5rem)' }}
       >
         <div className="mx-auto flex h-11 max-w-md items-center gap-1 px-2">
           {back ? (
@@ -112,8 +110,6 @@ export default function AppBar({ title, subtitle, back, trailing, below, compact
 
           <div className="flex shrink-0 items-center gap-1.5 pr-1">{trailing}</div>
         </div>
-
-        {below && <div className="mx-auto max-w-md pb-2">{below}</div>}
       </header>
 
       {!compact && (

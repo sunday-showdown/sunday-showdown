@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Avatar from './Avatar';
 import BetSlipCard from './BetSlipCard';
 import PickCardMessage from './PickCardMessage';
+import SaveImageButton from './SaveImageButton';
 import { formatMessageTime } from '@/lib/format';
 import { QUICK_REACTIONS, type ChatMessage } from '@/lib/chat';
 
@@ -100,7 +101,7 @@ export default function MessageBubble({
                 )}
 
                 {message.attachment && (
-                  <span className="mt-1 block overflow-hidden rounded-xl border border-line bg-raised">
+                  <span className="relative mt-1 block overflow-hidden rounded-xl border border-line bg-raised">
                     {/* eslint-disable-next-line @next/next/no-img-element --
                         attachments are bucket or Tenor URLs, allowlisted in
                         lib/attachments.ts; next/image would proxy every GIF
@@ -115,6 +116,12 @@ export default function MessageBubble({
                       width={message.attachment.width ?? undefined}
                       height={message.attachment.height ?? undefined}
                       className="block h-auto max-h-[320px] w-full max-w-[260px] object-contain"
+                    />
+                    <SaveImageButton
+                      url={message.attachment.url}
+                      filename={`showdown-${message.id.slice(0, 8)}.${
+                        message.attachment.type === 'image/gif' ? 'gif' : 'png'
+                      }`}
                     />
                   </span>
                 )}

@@ -93,7 +93,10 @@ nav {
 
   /* iPhone safe areas. The notch and the home indicator both eat layout. */
   .safe-top {
-    padding-top: max(0.75rem, env(safe-area-inset-top));
+    /* --safe-top is set only when the measurement in components/SafeArea.tsx
+       finds the viewport running under the status bar; otherwise this falls
+       through to env(), and the floor covers a browser tab where both are 0. */
+    padding-top: max(0.75rem, var(--safe-top, env(safe-area-inset-top)));
   }
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom);

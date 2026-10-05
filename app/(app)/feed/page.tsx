@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
-import { loadMyLeagues } from '@/lib/week';
+import { resolveLeague } from '@/lib/league';
 import { loadChannels } from '@/lib/chat';
 import AppBar from '@/components/AppBar';
 import ChannelList, { type DmCandidate } from '@/components/ChannelList';
@@ -19,8 +19,8 @@ export default async function FeedPage({
   const params = await searchParams;
   const supabase = await createServerSupabase();
 
-  const leagues = await loadMyLeagues(supabase, user.id);
-  if (leagues.length === 0) {
+  const { leagues, league } = await resolveLeague(supabase, user.id, params.league);
+  if (!league) {
     return (
       <main>
         <AppBar title="Chat" />
@@ -42,10 +42,9 @@ export default async function FeedPage({
     );
   }
 
-  const league = leagues.find((l) => l.id === params.league) ?? leagues[0]!;
 
   const [channels, { data: members }, { data: following }] = await Promise.all([
-    loadChannels(supabase, user.id, league.id),
+    loadChannels(supabase, user.id),
     supabase.from('league_members').select('user_id').eq('league_id', league.id),
     supabase.from('follows').select('following_id').eq('follower_id', user.id),
   ]);
@@ -84,14 +83,15 @@ export default async function FeedPage({
         title="Chat"
         subtitle={
           unread > 0
-            ? `${league.name} · ${unread} unread`
-            : `${league.name} · talk, pictures, GIFs and slips`
+            ? `${unread} unread across your leagues`
+            : 'Talk, pictures, GIFs, slips and cards'
         }
         trailing={<LeagueSwitcher leagues={leagues} currentId={league.id} />}
       />
 
       <ChannelList
         channels={channels}
+        leagues={leagues}
         leagueId={league.id}
         isCommissioner={league.commissioner_id === user.id}
         candidates={candidates}

@@ -12,7 +12,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BetLeg } from './bets';
-import { formatSpread } from './format';
+import { describePick } from './format';
 import { pointsForOdds } from './odds';
 
 export const MESSAGE_PAGE = 50;
@@ -154,7 +154,12 @@ interface ChannelRow {
 }
 
 /**
- * Every channel this person can open: their league's rooms and their DMs.
+ * Every channel this person can open: all their leagues' rooms, and their DMs.
+ *
+ * Deliberately not scoped to one league. It used to take a leagueId and filter,
+ * which meant a second league's rooms simply did not appear anywhere in the app
+ * — there was no screen that listed them, so they were unreachable. The caller
+ * groups by league instead, which hides nothing.
  *
  * Five queries, flat, whatever the shape of the data — channels, unread counts,
  * DM membership, the names behind those memberships, and nothing else.
@@ -162,7 +167,6 @@ interface ChannelRow {
 export async function loadChannels(
   db: SupabaseClient,
   userId: string,
-  leagueId: string | null,
 ): Promise<ChannelSummary[]> {
   const [{ data: rows, error }, { data: unreadRows }, { data: dmRows }] = await Promise.all([
     db
@@ -202,8 +206,7 @@ export async function loadChannels(
   );
 
   const channels = ((rows ?? []) as ChannelRow[])
-    // A league's rooms belong to that league; DMs follow you across all of them.
-    .filter((row) => row.kind === 'dm' || row.league_id === leagueId)
+    // No filter: RLS already limits these to leagues this person is in.
     .map((row): ChannelSummary => {
       const partnerId = partnerOf.get(row.id) ?? null;
       return {
@@ -503,7 +506,7 @@ async function loadCards(
     const line = row.contest_line === null ? null : Number(row.contest_line);
 
     card.picks.push({
-      label: describeCardPick(row.market_type as string, row.selection as string, game, line),
+      label: describePick(row.market_type as string, row.selection as string, game, line, 'short'),
       matchup: `${game.away_abbr} @ ${game.home_abbr}`,
       points: pointsForOdds(odds),
       result,
@@ -529,20 +532,6 @@ async function loadCards(
   }
 
   return cards;
-}
-
-function describeCardPick(
-  market: string,
-  selection: string,
-  game: { home_abbr: string; away_abbr: string },
-  line: number | null,
-): string {
-  if (market === 'total') {
-    return `${selection === 'over' ? 'Over' : 'Under'} ${line ?? ''}`.trim();
-  }
-  const abbr = selection === 'home' ? game.home_abbr : game.away_abbr;
-  if (market === 'moneyline') return `${abbr} ML`;
-  return `${abbr} ${formatSpread(line)}`;
 }
 
 /**

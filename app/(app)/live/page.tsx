@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
-import { loadMyLeagues, loadWeek } from '@/lib/week';
+import { loadWeek } from '@/lib/week';
+import { resolveLeague } from '@/lib/league';
 import { liveState, liveValue, summarizeLive, type LivePick } from '@/lib/live';
 import { formatSpread } from '@/lib/format';
 import LiveCard, { type LiveRow } from '@/components/LiveCard';
 import EmptyState from '@/components/EmptyState';
 import AppBar from '@/components/AppBar';
+import LeagueSwitcher from '@/components/LeagueSwitcher';
 import type { PickemMarket } from '@/lib/types';
 
 export const metadata = { title: 'Live' };
@@ -20,8 +22,8 @@ export default async function LivePage({
   const params = await searchParams;
   const supabase = await createServerSupabase();
 
-  const leagues = await loadMyLeagues(supabase, user.id);
-  if (leagues.length === 0) {
+  const { leagues, league } = await resolveLeague(supabase, user.id, params.league);
+  if (!league) {
     return (
       <EmptyState
         title="No league yet"
@@ -31,7 +33,6 @@ export default async function LivePage({
     );
   }
 
-  const league = leagues.find((l) => l.id === params.league) ?? leagues[0]!;
   const requested = Number(params.week);
   const week =
     Number.isInteger(requested) && requested >= 1 && requested <= 18 ? requested : league.current_week;
@@ -104,7 +105,12 @@ export default async function LivePage({
 
   return (
     <main className="pb-4">
-      <AppBar title="Live" subtitle={`${league.name} · week ${week}`} back="/home" />
+      <AppBar
+        title="Live"
+        subtitle={`${league.name} · week ${week}`}
+        back="/home"
+        trailing={<LeagueSwitcher leagues={leagues} currentId={league.id} />}
+      />
 
       <LiveCard
         rows={rows}

@@ -10,7 +10,7 @@ const TABS = [
   { href: '/home', label: 'Home', icon: HomeIcon },
   { href: '/picks', label: 'Picks', icon: PicksIcon },
   { href: '/feed', label: 'Chat', icon: ChatIcon },
-  { href: '/standings', label: 'Table', icon: StandingsIcon },
+  { href: '/ranks', label: 'Ranks', icon: RanksIcon },
   { href: '/profile', label: 'You', icon: ProfileIcon },
 ] as const;
 
@@ -136,7 +136,7 @@ function ChatIcon({ filled }: { filled: boolean }) {
   );
 }
 
-function StandingsIcon({ filled }: { filled: boolean }) {
+function RanksIcon({ filled }: { filled: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path

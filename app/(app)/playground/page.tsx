@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
-import { loadMyLeagues } from '@/lib/week';
+import { resolveLeague } from '@/lib/league';
 import { loadPot } from '@/lib/pot';
 import PlaygroundCard from '@/components/PlaygroundCard';
 import EmptyState from '@/components/EmptyState';
@@ -21,8 +21,8 @@ export default async function PlaygroundPage({
   const params = await searchParams;
   const supabase = await createServerSupabase();
 
-  const leagues = await loadMyLeagues(supabase, user.id);
-  if (leagues.length === 0) {
+  const { leagues, league } = await resolveLeague(supabase, user.id, params.league);
+  if (!league) {
     return (
       <main>
         <AppBar title="Playground" back="/home" />
@@ -35,7 +35,6 @@ export default async function PlaygroundPage({
     );
   }
 
-  const league = leagues.find((l) => l.id === params.league) ?? leagues[0]!;
   const week = league.current_week;
 
   const { data: card } = await supabase

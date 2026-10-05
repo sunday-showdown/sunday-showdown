@@ -19,17 +19,23 @@ export interface DmCandidate {
 /**
  * The rooms, as a list.
  *
- * Sorted by what has happened rather than by name: unread first, then most
- * recently active. A channel list ordered alphabetically makes you hunt for the
- * conversation you are actually in.
+ * Grouped by league, with the active one first, rather than showing a single
+ * league's rooms and silently dropping the rest — which is what it did, and
+ * which made a second league look like it had no chat at all.
+ *
+ * Within a group, sorted by what has happened rather than by name: unread
+ * first, then most recently active. A channel list ordered alphabetically makes
+ * you hunt for the conversation you are actually in.
  */
 export default function ChannelList({
   channels,
+  leagues,
   leagueId,
   isCommissioner,
   candidates,
 }: {
   channels: readonly ChannelSummary[];
+  leagues: readonly { id: string; name: string }[];
   leagueId: string | null;
   isCommissioner: boolean;
   candidates: readonly DmCandidate[];
@@ -43,8 +49,16 @@ export default function ChannelList({
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
 
-  const rooms = [...channels.filter((c) => c.kind !== 'dm')].sort(byActivity);
   const dms = [...channels.filter((c) => c.kind === 'dm')].sort(byActivity);
+
+  // Active league first, then the rest in the order the account lists them.
+  const groups = [...leagues]
+    .sort((a, b) => Number(b.id === leagueId) - Number(a.id === leagueId))
+    .map((league) => ({
+      league,
+      rooms: channels.filter((c) => c.kind !== 'dm' && c.leagueId === league.id).sort(byActivity),
+    }))
+    .filter((group) => group.rooms.length > 0);
 
   const create = async () => {
     if (!leagueId) return;
@@ -114,20 +128,7 @@ export default function ChannelList({
       )}
 
       <section>
-        <div className="flex items-center justify-between px-4 pb-2">
-          <h2 className="eyebrow">Channels</h2>
-          {leagueId && (
-            <button
-              type="button"
-              onClick={() => setCreating(true)}
-              className="text-[11px] font-bold text-brand"
-            >
-              + New
-            </button>
-          )}
-        </div>
-
-        <div className="space-y-1.5 px-4">
+        <div className="px-4 pb-2">
           <Link href="/feed/highlights" className="card flex items-center gap-3 px-3.5 py-3">
             <span
               aria-hidden="true"
@@ -143,12 +144,46 @@ export default function ChannelList({
             </div>
             <span className="shrink-0 text-muted">›</span>
           </Link>
-
-          {rooms.map((channel) => (
-            <ChannelRow key={channel.id} channel={channel} />
-          ))}
         </div>
       </section>
+
+      {groups.map((group) => {
+        const unread = group.rooms.reduce((sum, room) => sum + room.unread, 0);
+        const isActive = group.league.id === leagueId;
+
+        return (
+          <section key={group.league.id} className="mt-4">
+            <div className="flex items-center justify-between gap-2 px-4 pb-2">
+              <h2 className="eyebrow min-w-0">
+                <span className="truncate">
+                  {groups.length > 1 ? group.league.name : 'Channels'}
+                </span>
+                {unread > 0 && (
+                  <span className="display ml-1 rounded-full bg-brand px-1.5 text-[9px] text-brand-ink tabnum">
+                    {unread > 99 ? '99+' : unread}
+                  </span>
+                )}
+              </h2>
+
+              {isActive && (
+                <button
+                  type="button"
+                  onClick={() => setCreating(true)}
+                  className="shrink-0 text-[11px] font-bold text-brand"
+                >
+                  + New
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-1.5 px-4">
+              {group.rooms.map((channel) => (
+                <ChannelRow key={channel.id} channel={channel} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
 
       <section className="mt-5">
         <div className="flex items-center justify-between px-4 pb-2">

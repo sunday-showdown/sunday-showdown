@@ -18,6 +18,8 @@ export interface StandingRow {
    * moved from.
    */
   movement: number | null;
+  /** The best single week anyone has had, for the board that ranks on it. */
+  bestWeek: number;
 }
 
 interface ResultRow {
@@ -135,6 +137,7 @@ function tally(results: readonly ResultRow[]): Map<string, Tally> {
         correctMl: 0,
         correctSpread: 0,
         correctTotals: 0,
+        bestWeek: 0,
       };
 
     entry.totalPoints += Number(row.total_points);
@@ -143,6 +146,7 @@ function tally(results: readonly ResultRow[]): Map<string, Tally> {
     entry.correctMl += row.correct_ml;
     entry.correctSpread += row.correct_spread;
     entry.correctTotals += row.correct_totals;
+    entry.bestWeek = Math.max(entry.bestWeek, Number(row.total_points));
 
     byUser.set(row.user_id, entry);
   }
