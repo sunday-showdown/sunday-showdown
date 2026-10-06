@@ -25,12 +25,13 @@ import {
   playBattle,
   roundDamage,
   battleOutcome,
+  isCloseFight,
   MAX_HP,
   type Duration,
   type Round,
 } from './battle';
 import { defaultFighter } from './fighters';
-import { buildDuelResult, buildDuelRound } from './notifications';
+import { buildDuelClose, buildDuelResult, buildDuelRound } from './notifications';
 import { notify } from './notify';
 
 /** The last week a regular-season duel can be settled in. */
@@ -87,6 +88,8 @@ export interface H2HReport {
   roundsPlayed: number;
   expired: number;
   knockouts: number;
+  /** "Your duel is close" notifications sent while a week was still running. */
+  closeCalls: number;
   warnings: string[];
 }
 
@@ -121,6 +124,7 @@ export async function gradeH2HWeek(
     roundsPlayed: 0,
     expired: 0,
     knockouts: 0,
+    closeCalls: 0,
     warnings: [],
   };
 
@@ -153,6 +157,23 @@ export async function gradeH2HWeek(
     gradedLeagues.add(row.league_id as string);
   }
 
+  // Which leagues have finished the week, as opposed to merely started it.
+  //
+  // weekly_results appears as soon as the first game of the week settles, so
+  // "there are results" is not "the week is over" — and a weekly duel read that
+  // way would crown a winner on Sunday afternoon off two finished games. A
+  // league is done when it has no pending picks left.
+  const { data: pendingRows, error: pendingError } = await db
+    .from('picks')
+    .select('league_id')
+    .eq('season', season)
+    .eq('week', week)
+    .eq('result', 'pending');
+
+  if (pendingError) throw new Error(`failed to read pending picks: ${pendingError.message}`);
+
+  const stillPlaying = new Set((pendingRows ?? []).map((row) => row.league_id as string));
+
   const names = await loadUsernames(
     db,
     due.flatMap((c) => [c.challenger_id, c.opponent_id]),
@@ -173,9 +194,17 @@ export async function gradeH2HWeek(
       gradedLeagues.has(challengerLeague) &&
       gradedLeagues.has(opponentLeague);
 
+    // Both cards finished, not merely started. Until then the round is live:
+    // worth recording and worth a notification if it is tight, but not worth
+    // declaring.
+    const weekIsOver =
+      bothGraded &&
+      !stillPlaying.has(challengerLeague!) &&
+      !stillPlaying.has(opponentLeague!);
+
     if (challenge.status === 'pending') {
-      // Never answered, and the week it was for has results: it is dead.
-      if (bothGraded) {
+      // Never answered, and the week it was for is over: it is dead.
+      if (weekIsOver) {
         const { error: expireError } = await db
           .from('h2h_challenges')
           .update({ status: 'expired', expired_at: now })
@@ -236,8 +265,15 @@ export async function gradeH2HWeek(
     }));
 
     const state = playBattle(rounds);
-    const roundsRemaining =
-      challenge.duration === 'season' ? Math.max(0, LAST_REGULAR_WEEK - week) : 0;
+
+    // A week still being played is a round still being fought, whatever the
+    // duration — so a weekly duel has one round remaining right up until the
+    // last game of its week is final.
+    const roundsRemaining = weekIsOver
+      ? challenge.duration === 'season'
+        ? Math.max(0, LAST_REGULAR_WEEK - week)
+        : 0
+      : 1;
     const outcome = battleOutcome(state, roundsRemaining);
 
     const winnerId =
@@ -273,9 +309,35 @@ export async function gradeH2HWeek(
 
       if (tickError) report.warnings.push(`challenge ${challenge.id}: ${tickError.message}`);
 
-      // A season duel that is still running tells both fighters what the week
-      // did, so a long fight has a pulse between now and January.
-      await notifyRound(db, challenge, names, week, state, report);
+      if (weekIsOver) {
+        // A season duel that is still running tells both fighters what the week
+        // did, so a long fight has a pulse between now and January.
+        await notifyRound(db, challenge, names, week, state, report);
+      } else if (isCloseFight(challengerPoints, opponentPoints)) {
+        // Mid-Sunday and neck and neck: the one moment in this app worth
+        // looking up for. Keyed to the week, so it lands once however many
+        // times grading runs over the afternoon.
+        const sent = await notify(db, [
+          buildDuelClose({
+            challengeId: challenge.id,
+            week,
+            userId: challenge.challenger_id,
+            opponentName: names.get(challenge.opponent_id) ?? 'Someone',
+            mine: challengerPoints,
+            theirs: opponentPoints,
+          }),
+          buildDuelClose({
+            challengeId: challenge.id,
+            week,
+            userId: challenge.opponent_id,
+            opponentName: names.get(challenge.challenger_id) ?? 'Someone',
+            mine: opponentPoints,
+            theirs: challengerPoints,
+          }),
+        ]);
+        report.warnings.push(...sent.warnings);
+        report.closeCalls += sent.created;
+      }
       continue;
     }
 

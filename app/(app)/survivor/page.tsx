@@ -2,17 +2,20 @@ import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { resolveLeague } from '@/lib/league';
 import { isAlive } from '@/lib/survivor';
+import { loadPoolBoard } from '@/lib/survivorPool';
 import { loadPot } from '@/lib/pot';
 import SurvivorBoard, { type SurvivorGameOption } from '@/components/SurvivorBoard';
 import EmptyState from '@/components/EmptyState';
 import AppBar from '@/components/AppBar';
-import LeagueSwitcher from '@/components/LeagueSwitcher';
 import ModePot from '@/components/ModePot';
 import ModeChatButton from '@/components/ModeChatButton';
+import PoolRoster from '@/components/PoolRoster';
+import PoolSwitcher from '@/components/PoolSwitcher';
 import PoolInvite, { type InviteCandidate } from '@/components/PoolInvite';
 import type { SurvivorPickResult } from '@/lib/types';
 
 export const metadata = { title: 'Survivor' };
+export const dynamic = 'force-dynamic';
 
 export default async function SurvivorPage({
   searchParams,
@@ -23,25 +26,18 @@ export default async function SurvivorPage({
   const params = await searchParams;
   const supabase = await createServerSupabase();
 
-  const { leagues, league } = await resolveLeague(supabase, user.id, params.league);
-  if (!league) {
-    return (
-      <main>
-        <AppBar title="Survivor" back="/home" />
-        <EmptyState
-          title="No league yet"
-          body="Survivor pools live inside a league. Create or join one first."
-          action={<Link href="/leagues/new" className="btn-primary h-11 px-5 text-sm">Create a league</Link>}
-        />
-      </main>
-    );
-  }
-
+  // A league is no longer required to be here. A pool can belong to one, to a
+  // different one, or to nobody — so the active league decides the season and
+  // the week, and the pools come from membership rather than from whichever
+  // league happens to be selected. Having to switch leagues to look at a pool
+  // was asking people to re-aim the whole app to read one screen.
+  const { league } = await resolveLeague(supabase, user.id);
+  const season = league?.season ?? new Date().getFullYear();
 
   const { data: pools } = await supabase
     .from('survivor_pools')
-    .select('id, name, season, status, alive_count, member_count, winner_id, invite_code, buy_in, commissioner_id')
-    .eq('season', league.season)
+    .select('id, name, season, status, alive_count, member_count, winner_id, invite_code, buy_in, commissioner_id, league_id')
+    .eq('season', season)
     .order('created_at', { ascending: true });
 
   const pool = (pools ?? []).find((p) => p.id === params.pool) ?? (pools ?? [])[0];
@@ -49,13 +45,13 @@ export default async function SurvivorPage({
   if (!pool) {
     return (
       <main>
-        <Header league={league.name} leagues={leagues} currentId={league.id} />
+        <Header subtitle="One team a week, never twice" />
         <EmptyState
           title="No pool running"
           body="Start one and invite whoever you like — your league, your friends, or anybody with the code. Pick one team a week to win, and never the same team twice."
           action={
             <div className="flex flex-col gap-2">
-              <CreatePoolLink season={league.season} leagueId={league.id} />
+              <CreatePoolLink season={season} leagueId={league?.id ?? null} />
               <Link href="/survivor/join" className="btn-ghost h-11 px-5 text-sm">
                 Join with a code
               </Link>
@@ -66,11 +62,13 @@ export default async function SurvivorPage({
     );
   }
 
+  const poolLeagueId = (pool.league_id as string) ?? null;
+
   const requested = Number(params.week);
   const week =
     Number.isInteger(requested) && requested >= 1 && requested <= 18
       ? requested
-      : league.current_week;
+      : (league?.current_week ?? 1);
 
   const [{ data: myPicks }, { data: games }] = await Promise.all([
     supabase
@@ -116,13 +114,19 @@ export default async function SurvivorPage({
   }
   options.sort((a, b) => a.teamAbbr.localeCompare(b.teamAbbr));
 
-  // The pot belongs to this pool, not to survivor in general, so two pools in
-  // one league can run different buy-ins.
-  const pot = await loadPot(supabase, user.id, league, 'survivor', pool.id as string);
+  // The field. Who is alive, what the room has locked in, what each of them has
+  // already spent — the part of survivor that was missing entirely.
+  const board = await loadPoolBoard(supabase, user.id, pool.id as string, week);
 
-  // Who this person could invite: their league, plus anyone they follow.
+  // The pot belongs to this pool, not to survivor in general, so two pools can
+  // run different buy-ins. A pool with no league has nowhere to hang one yet.
+  const pot = poolLeagueId
+    ? await loadPot(supabase, user.id, { id: poolLeagueId, season }, 'survivor', pool.id as string)
+    : null;
+
+  // Who this person could invite: their leagues, plus anyone they follow.
   const [{ data: leagueMates }, { data: following }] = await Promise.all([
-    supabase.from('league_members').select('user_id').eq('league_id', league.id),
+    supabase.from('league_members').select('user_id'),
     supabase.from('follows').select('following_id').eq('follower_id', user.id),
   ]);
 
@@ -139,7 +143,9 @@ export default async function SurvivorPage({
     : { data: [] };
 
   const inLeague = new Set(mateIds);
+  const inPool = new Set(board.entrants.map((e) => e.userId));
   const candidates: InviteCandidate[] = (candidateProfiles ?? [])
+    .filter((profile) => !inPool.has(profile.user_id as string))
     .map((profile) => ({
       userId: profile.user_id as string,
       username: profile.username as string,
@@ -148,25 +154,55 @@ export default async function SurvivorPage({
     }))
     .sort((a, b) => a.username.localeCompare(b.username));
 
+  const poolOptions = (pools ?? []).map((p) => ({
+    id: p.id as string,
+    name: p.name as string,
+    alive: Number(p.alive_count ?? 0),
+    members: Number(p.member_count ?? 0),
+  }));
+
   return (
     <main className="pb-4">
-      <Header league={league.name} leagues={leagues} currentId={league.id} />
+      <Header subtitle={`${pool.name} · week ${week}`} />
+
+      <div className="px-4">
+        <PoolSwitcher pools={poolOptions} currentId={pool.id as string} />
+      </div>
 
       <section className="px-4">
-        <div className="card flex items-center justify-between px-4 py-3">
-          <div>
-            <div className="text-sm font-semibold">{pool.name}</div>
-            <div className="text-[11px] text-muted">
-              {pool.alive_count} of {pool.member_count} still alive · week {week}
+        <div className={`card px-4 py-3.5 ${alive ? '' : 'opacity-80'}`}>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="eyebrow">{pool.name}</div>
+              <div className="display mt-1.5 text-[28px] leading-none">
+                {board.aliveCount} still alive
+              </div>
+              <div className="mt-1 text-[11px] text-muted">
+                {board.outCount} out · {board.lockedIn} of {board.aliveCount} locked in for week{' '}
+                {week}
+              </div>
             </div>
+            <span
+              className={`chip shrink-0 ${alive ? 'bg-win/15 text-win' : 'bg-loss/15 text-loss'}`}
+            >
+              {alive ? 'Alive' : 'Out'}
+            </span>
           </div>
-          <span
-            className={`rounded-lg px-2.5 py-1 text-[11px] font-bold ${
-              alive ? 'bg-win/15 text-win' : 'bg-loss/15 text-loss'
-            }`}
-          >
-            {alive ? 'ALIVE' : 'OUT'}
+        </div>
+      </section>
+
+      <section className="mt-5">
+        <div className="flex items-center justify-between px-4 pb-2">
+          <h2 className="eyebrow">The field</h2>
+          <span className="text-[11px] font-bold text-muted">
+            {board.entrants.length} entrant{board.entrants.length === 1 ? '' : 's'}
           </span>
+        </div>
+        <div className="px-4">
+          <PoolRoster entrants={board.entrants} week={week} />
+          <p className="mt-2 px-1 text-[11px] leading-relaxed text-muted">
+            Picks stay hidden until their game kicks off. Struck-through teams went out.
+          </p>
         </div>
       </section>
 
@@ -237,41 +273,32 @@ export default async function SurvivorPage({
           buyIn={Math.round(Number(pool.buy_in ?? 0))}
           candidates={candidates}
         />
-        <ModePot
-          pot={pot}
-          leagueId={league.id}
-          season={league.season}
-          competitionId={pool.id as string}
-        />
-        <ModeChatButton leagueId={league.id} mode="survivor" label="Survivor" />
+        {pot && poolLeagueId && (
+          <ModePot
+            pot={pot}
+            leagueId={poolLeagueId}
+            season={season}
+            competitionId={pool.id as string}
+          />
+        )}
+        {poolLeagueId && (
+          <ModeChatButton leagueId={poolLeagueId} mode="survivor" label="Survivor" />
+        )}
       </div>
     </main>
   );
 }
 
-function Header({
-  league,
-  leagues,
-  currentId,
-}: {
-  league: string;
-  leagues: { id: string; name: string }[];
-  currentId: string;
-}) {
-  return (
-    <AppBar
-      title="Survivor"
-      subtitle={`${league} · one team a week, never twice`}
-      back="/home"
-      trailing={<LeagueSwitcher leagues={leagues} currentId={currentId} />}
-    />
-  );
+function Header({ subtitle }: { subtitle: string }) {
+  // No league switcher. A pool is its own thing; the pool switcher above the
+  // board is the control that actually changes what you are looking at.
+  return <AppBar title="Survivor" subtitle={subtitle} back="/home" />;
 }
 
-function CreatePoolLink({ season, leagueId }: { season: number; leagueId: string }) {
+function CreatePoolLink({ season, leagueId }: { season: number; leagueId: string | null }) {
   return (
     <Link
-      href={`/survivor/new?season=${season}&league=${leagueId}`}
+      href={`/survivor/new?season=${season}${leagueId ? `&league=${leagueId}` : ''}`}
       className="btn-primary h-11 px-5 text-sm"
     >
       Start a pool

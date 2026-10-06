@@ -261,7 +261,51 @@ try {
     }
   }
 
-  // --- Survivor picks are deliberately not seeded -------------------------------------
+  // Picks for the *current* week are a different matter: those games have not
+  // kicked off, so entering them is an ordinary legal pick and the lock has no
+  // objection. It gives the pool board a real mix of locked-in and undecided.
+  const { rows: current } = await db.query(
+    `select max(current_week) as week from public.leagues where season = $1`,
+    [season],
+  );
+  const liveWeek = Number(current[0]?.week ?? 0);
+
+  if (liveWeek > 0) {
+    const { rows: upcoming } = await db.query(
+      `select id, home_abbr, away_abbr from public.nfl_games
+        where season = $1 and week = $2 and status = 'scheduled' order by start_time, id`,
+      [season, liveWeek],
+    );
+
+    for (const pool of pools) {
+      const { rows: entrants } = await db.query(
+        `select user_id from public.survivor_members where pool_id = $1`,
+        [pool.id],
+      );
+
+      for (const [index, entrant] of entrants.entries()) {
+        // Not everybody — an all-locked-in board hides the distinction the
+        // screen exists to draw.
+        if (index % 4 === 3 || upcoming.length === 0) continue;
+
+        const random = seeded(`${entrant.user_id}:survivor:${liveWeek}`);
+        const game = upcoming[Math.floor(random() * upcoming.length)];
+        const team = random() < 0.5 ? game.home_abbr : game.away_abbr;
+
+        const { rowCount } = await db.query(
+          `insert into public.survivor_picks (pool_id, user_id, season, week, team_abbr)
+           values ($1,$2,$3,$4,$5) on conflict do nothing returning id`,
+          [pool.id, entrant.user_id, season, liveWeek, team],
+        );
+        if (rowCount) {
+          tally('survivor picks');
+          await remember('survivor_picks', `${pool.id}:${entrant.user_id}:${liveWeek}`, 10);
+        }
+      }
+    }
+  }
+
+  // --- Past survivor weeks are deliberately not seeded -------------------------------------
   //
   // A survivor pick locks on its own game's kickoff (migration 0027), so there
   // is no legitimate way to enter one for a week that has already been played —
@@ -283,7 +327,16 @@ try {
     'called it. screenshot it.',
   ];
 
-  for (const league of leagues) {
+  // Every other table in this script deduplicates on a natural key, but a chat
+  // message has none — the same sentence twice is a legitimate conversation. So
+  // the ledger is the key: if this batch has already posted, it does not post
+  // again. Without this, re-running the seed doubled the chatter every time.
+  const { rows: posted } = await db.query(
+    `select 1 from public.demo_seed where batch = $1 and table_name = 'messages' limit 1`,
+    [BATCH],
+  );
+
+  for (const league of posted.length > 0 ? [] : leagues) {
     const { rows: channels } = await db.query(
       `select id from public.channels where league_id = $1 order by created_at limit 1`,
       [league.id],

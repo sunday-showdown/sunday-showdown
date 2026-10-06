@@ -173,6 +173,24 @@ export function describeDamage(damage: number): string {
   return 'Blocked';
 }
 
+/**
+ * Whether a fight is worth interrupting somebody for.
+ *
+ * Close is relative, not absolute: a 10-point gap is a photo finish on a
+ * two-game Thursday and a rout nowhere. So it is a share of the leader's score
+ * with a floor, which keeps an early-Sunday 7-3 from counting as a thriller.
+ *
+ * Both sides have to be on the board. Nobody wants a notification telling them
+ * that nothing has happened yet.
+ */
+export function isCloseFight(mine: number, theirs: number): boolean {
+  if (!Number.isFinite(mine) || !Number.isFinite(theirs)) return false;
+  if (mine <= 0 || theirs <= 0) return false;
+
+  const leader = Math.max(mine, theirs);
+  return Math.abs(mine - theirs) <= Math.max(12, leader * 0.07);
+}
+
 /** A health bar's tone, so the colour and the number cannot disagree. */
 export function hpTone(hp: number): 'healthy' | 'hurt' | 'critical' | 'down' {
   if (hp <= 0) return 'down';

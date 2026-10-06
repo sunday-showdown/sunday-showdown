@@ -9,6 +9,7 @@ import {
   battleOutcome,
   describeDamage,
   hpTone,
+  isCloseFight,
   type Round,
 } from '../lib/battle';
 
@@ -192,5 +193,41 @@ describe('describeDamage and hpTone', () => {
     expect(hpTone(55)).toBe('hurt');
     expect(hpTone(12)).toBe('critical');
     expect(hpTone(0)).toBe('down');
+  });
+});
+
+describe('isCloseFight', () => {
+  it('calls a near-level score close', () => {
+    expect(isCloseFight(104, 98)).toBe(true);
+  });
+
+  it('does not call a rout close', () => {
+    expect(isCloseFight(190, 70)).toBe(false);
+  });
+
+  it('scales with the size of the week rather than using a flat gap', () => {
+    // 14 points apart is a photo finish on a 200-point card and nothing like
+    // one on a 30-point Thursday.
+    expect(isCloseFight(200, 186)).toBe(true);
+    expect(isCloseFight(30, 16)).toBe(false);
+  });
+
+  it('keeps a floor, so tiny slates are not all "close"', () => {
+    expect(isCloseFight(20, 12)).toBe(true);
+    expect(isCloseFight(20, 5)).toBe(false);
+  });
+
+  it('says nothing while either side is still on zero', () => {
+    // "Your duel is close at 0-0" is not news.
+    expect(isCloseFight(0, 0)).toBe(false);
+    expect(isCloseFight(44, 0)).toBe(false);
+  });
+
+  it('is symmetric', () => {
+    expect(isCloseFight(118, 112)).toBe(isCloseFight(112, 118));
+  });
+
+  it('ignores nonsense rather than reporting it as close', () => {
+    expect(isCloseFight(Number.NaN, 50)).toBe(false);
   });
 });

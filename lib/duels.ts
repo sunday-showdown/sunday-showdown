@@ -66,8 +66,16 @@ export interface Opponent {
   /** Lifetime duel record against me, from the fights loaded here. */
   myWins: number;
   theirWins: number;
-  /** An open duel already exists, so the button has to say so. */
-  openDuel: boolean;
+  /**
+   * Which kinds of duel are already running against them.
+   *
+   * Two flags rather than one, because the database allows a weekly duel and a
+   * season duel at the same time and a single "already fighting" boolean made
+   * the whole row unclickable the moment either existed — so one open duel
+   * blocked every other kind, including a rematch.
+   */
+  openWeekly: boolean;
+  openSeason: boolean;
 }
 
 export interface DuelsView {
@@ -266,10 +274,12 @@ export async function loadDuels(
   const live = duels.filter((d) => d.status === 'accepted' || (d.status === 'pending' && d.iAmChallenger));
   const settled = duels.filter((d) => d.status === 'completed');
 
-  const openAgainst = new Set(
-    duels
-      .filter((d) => d.status === 'pending' || d.status === 'accepted')
-      .map((d) => d.them.userId),
+  const unresolved = duels.filter((d) => d.status === 'pending' || d.status === 'accepted');
+  const openWeeklyAgainst = new Set(
+    unresolved.filter((d) => d.duration === 'week').map((d) => d.them.userId),
+  );
+  const openSeasonAgainst = new Set(
+    unresolved.filter((d) => d.duration === 'season').map((d) => d.them.userId),
   );
 
   const candidates = new Set([...friends, ...mateLeague.keys()]);
@@ -287,7 +297,8 @@ export async function loadDuels(
         isFriend: friends.has(id),
         myWins: settledAgainst.filter((d) => d.winnerId === userId).length,
         theirWins: settledAgainst.filter((d) => d.winnerId === id).length,
-        openDuel: openAgainst.has(id),
+        openWeekly: openWeeklyAgainst.has(id),
+        openSeason: openSeasonAgainst.has(id),
       };
     })
     .sort((a, b) => a.username.localeCompare(b.username));

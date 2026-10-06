@@ -24,6 +24,7 @@ export type NotificationType =
   | 'h2h_received'
   | 'h2h_result'
   | 'duel_round'
+  | 'duel_close'
   | 'survivor_eliminated'
   | 'mention'
   | 'direct_message';
@@ -235,7 +236,7 @@ export function buildDuelInvite(input: {
           : `Week ${week}, one round, highest card wins.`,
     key: `duel-invite:${challengeId}`,
     data: { challengeId, duration, week },
-    url: `/h2h?duel=${challengeId}`,
+    url: `/h2h/${challengeId}`,
   };
 }
 
@@ -277,7 +278,7 @@ export function buildDuelResult(input: {
             : 'Close one. Run it back.',
       key: `duel-result:${challengeId}:${me}`,
       data: { challengeId, season, week },
-      url: `/h2h?duel=${challengeId}`,
+      url: `/h2h/${challengeId}`,
     };
   });
 }
@@ -307,7 +308,7 @@ export function buildDuelRound(input: {
     message: `Week ${week}: you ${myHp} HP, them ${theirHp} HP.`,
     key: `duel-round:${challengeId}:${week}`,
     data: { challengeId, week },
-    url: `/h2h?duel=${challengeId}`,
+    url: `/h2h/${challengeId}`,
   };
 }
 
@@ -329,5 +330,41 @@ export function buildSurvivorElimination(input: {
     key: `survivor-out:${poolId}:${userId}`,
     data: { poolId, week },
     url: '/survivor',
+  };
+}
+
+/**
+ * A duel going down to the wire, sent while the games are still on.
+ *
+ * The one notification in this app with a reason to arrive mid-afternoon rather
+ * than afterwards: the point of a duel is caring about somebody else's card,
+ * and the moment that is true is when it is level with yours and there are
+ * games left.
+ *
+ * Keyed to the week, not the moment, so grading running every few minutes all
+ * Sunday sends this once.
+ */
+export function buildDuelClose(input: {
+  challengeId: string;
+  week: number;
+  userId: string;
+  opponentName: string;
+  mine: number;
+  theirs: number;
+}): NotificationDraft {
+  const { challengeId, week, userId, opponentName, mine, theirs } = input;
+  const gap = Math.abs(Math.round(mine) - Math.round(theirs));
+
+  return {
+    userId,
+    type: 'duel_close',
+    title: gap === 0 ? `Dead level with ${opponentName}` : `${gap} points in it`,
+    message:
+      mine >= theirs
+        ? `You lead ${opponentName} ${Math.round(mine)}–${Math.round(theirs)}, and it is not over.`
+        : `${opponentName} leads you ${Math.round(theirs)}–${Math.round(mine)}. Still games to play.`,
+    key: `duel-close:${challengeId}:${week}`,
+    data: { challengeId, week },
+    url: `/h2h/${challengeId}`,
   };
 }

@@ -135,7 +135,7 @@ export default function DuelPanel({
                     size={44}
                     className="shrink-0"
                   />
-                  <div className="min-w-0 flex-1">
+                  <Link href={`/h2h/${duel.id}`} className="min-w-0 flex-1">
                     <div className="truncate text-[15px] font-bold">
                       {duel.them.fighter.name}{' '}
                       <span className="font-semibold text-muted">· {duel.them.username}</span>
@@ -144,7 +144,7 @@ export default function DuelPanel({
                       {duel.duration === 'season' ? 'Season duel' : `Week ${duel.week}`}
                       {duel.leagueName ? ` · ${duel.leagueName}` : ' · Friend duel'}
                     </div>
-                  </div>
+                  </Link>
                 </div>
 
                 {duel.them.fighter.taunt && (
@@ -183,11 +183,13 @@ export default function DuelPanel({
           <div className="space-y-3">
             {ordered.map((duel) => (
               <div key={duel.id}>
-                <BattleArena
-                  duel={duel}
-                  currentWeek={currentWeek}
-                  roundsLeft={roundsLeftFor[duel.id] ?? 0}
-                />
+                <Link href={`/h2h/${duel.id}`} className="block active:opacity-80">
+                  <BattleArena
+                    duel={duel}
+                    currentWeek={currentWeek}
+                    roundsLeft={roundsLeftFor[duel.id] ?? 0}
+                  />
+                </Link>
                 {duel.status === 'pending' && duel.iAmChallenger && (
                   <button
                     type="button"
@@ -219,26 +221,33 @@ export default function DuelPanel({
         ) : (
           <div className="space-y-2">
             {view.opponents.map((opponent) => (
-              <div key={opponent.userId} className="card flex items-center gap-3 px-4 py-3">
+              // The whole row opens the challenge sheet. It used to be a
+              // button that disabled itself whenever *any* duel with that
+              // person was open, which meant one running fight made them
+              // permanently unchallengeable — no rematch, no season duel
+              // alongside a weekly one, and no way to tell why.
+              <button
+                key={opponent.userId}
+                type="button"
+                onClick={() => setTarget(opponent)}
+                className="card flex w-full items-center gap-3 px-4 py-3 text-left active:bg-raised"
+              >
                 <Avatar username={opponent.username} url={opponent.avatarUrl} size="md" />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[15px] font-bold">{opponent.username}</div>
-                  <div className="truncate text-[11px] text-muted">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-bold">{opponent.username}</span>
+                  <span className="block truncate text-[11px] text-muted">
                     {opponent.myWins > 0 || opponent.theirWins > 0
                       ? `${opponent.myWins}–${opponent.theirWins} v you · `
                       : ''}
                     {opponent.viaLeague ?? (opponent.isFriend ? 'Friend' : 'Rival')}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={opponent.openDuel}
-                  onClick={() => setTarget(opponent)}
-                  className="btn-ghost h-9 px-3 text-xs disabled:opacity-40"
-                >
-                  {opponent.openDuel ? 'On' : 'Challenge'}
-                </button>
-              </div>
+                  </span>
+                </span>
+                {opponent.openWeekly || opponent.openSeason ? (
+                  <span className="chip shrink-0 bg-brand/15 text-brand">Fighting</span>
+                ) : (
+                  <span className="btn-ghost pointer-events-none h-9 px-3 text-xs">Challenge</span>
+                )}
+              </button>
             ))}
           </div>
         )}
@@ -253,15 +262,21 @@ export default function DuelPanel({
               const tied = duel.winnerId === null;
 
               return (
-                <div key={duel.id} className="card flex items-center justify-between px-4 py-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold">{duel.them.fighter.name}</div>
-                    <div className="truncate text-[11px] text-muted">
+                <Link
+                  key={duel.id}
+                  href={`/h2h/${duel.id}`}
+                  className="card flex items-center justify-between px-4 py-3 active:bg-raised"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">
+                      {duel.them.fighter.name}
+                    </span>
+                    <span className="block truncate text-[11px] text-muted">
                       {duel.them.username} · {duel.duration === 'season' ? 'Season' : `Week ${duel.week}`}
                       {duel.knockoutWeek !== null ? ' · KO' : ''}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-3">
                     <span className="tabnum text-sm">
                       {Math.round(duel.me.points)} – {Math.round(duel.them.points)}
                     </span>
@@ -272,8 +287,9 @@ export default function DuelPanel({
                     >
                       {tied ? 'Draw' : won ? 'Won' : 'Lost'}
                     </span>
-                  </div>
-                </div>
+                    <span className="text-muted">›</span>
+                  </span>
+                </Link>
               );
             })}
           </div>
@@ -291,26 +307,29 @@ export default function DuelPanel({
           <div className="space-y-2">
             <button
               type="button"
-              disabled={busy === `new:${target.userId}`}
+              disabled={busy === `new:${target.userId}` || target.openWeekly}
               onClick={() => challenge(target, 'week')}
-              className="card w-full px-4 py-3.5 text-left active:bg-raised"
+              className="card w-full px-4 py-3.5 text-left active:bg-raised disabled:opacity-45"
             >
               <div className="display text-[17px] leading-none">This week</div>
               <p className="mt-1.5 text-[12px] text-muted">
-                One round. Week {currentWeek} cards, highest score wins, done Tuesday.
+                {target.openWeekly
+                  ? 'You already have a weekly duel running with them.'
+                  : `One round. Week ${currentWeek} cards, highest score wins, done Tuesday.`}
               </p>
             </button>
 
             <button
               type="button"
-              disabled={busy === `new:${target.userId}`}
+              disabled={busy === `new:${target.userId}` || target.openSeason}
               onClick={() => challenge(target, 'season')}
-              className="card w-full px-4 py-3.5 text-left active:bg-raised"
+              className="card w-full px-4 py-3.5 text-left active:bg-raised disabled:opacity-45"
             >
               <div className="display text-[17px] leading-none">All season</div>
               <p className="mt-1.5 text-[12px] text-muted">
-                Both start at 100 HP. Every week the better card lands a hit. First one down loses,
-                or the healthier fighter takes it in week 18.
+                {target.openSeason
+                  ? 'A season duel with them is already under way.'
+                  : 'Both start at 100 HP. Every week the better card lands a hit. First one down loses, or the healthier fighter takes it in week 18.'}
               </p>
             </button>
 
