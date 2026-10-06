@@ -7,6 +7,7 @@ import {
   isCardLocked,
   isGamePickable,
   timeUntilLock,
+  cardLockState,
 } from '../lib/contest';
 
 // Real Week 5 2026 kickoffs, taken from the ESPN feed.
@@ -165,5 +166,81 @@ describe('timeUntilLock', () => {
 
   it('is zero with no lock set', () => {
     expect(timeUntilLock(null)).toBe(0);
+  });
+});
+
+describe('lock policy', () => {
+  const lock = new Date('2026-10-11T13:30:00Z'); // the contest lock, Sunday 9:30 ET
+  const sundayEarly = new Date('2026-10-11T17:00:00Z'); // a 1pm ET game
+  const mondayNight = new Date('2026-10-13T00:15:00Z'); // 8:15pm ET Monday
+  const afterLock = new Date('2026-10-11T14:00:00Z'); // past the lock, before any game
+
+  it('locks everything at the contest time under the default rule', () => {
+    expect(isGamePickable(sundayEarly, lock, afterLock, 'first_kickoff')).toBe(false);
+    expect(isGamePickable(mondayNight, lock, afterLock, 'first_kickoff')).toBe(false);
+  });
+
+  it('keeps a later game open under the per-game rule', () => {
+    // The whole point of the option: the Monday nighter is still pickable on
+    // Sunday afternoon, and the database agrees — see pick_lock_time().
+    expect(isGamePickable(mondayNight, lock, afterLock, 'per_game')).toBe(true);
+  });
+
+  it('still closes a game that has kicked off, under either rule', () => {
+    const duringSunday = new Date('2026-10-11T18:00:00Z');
+    expect(isGamePickable(sundayEarly, lock, duringSunday, 'per_game')).toBe(false);
+    expect(isGamePickable(sundayEarly, lock, duringSunday, 'first_kickoff')).toBe(false);
+  });
+
+  it('defaults to the first-kickoff rule when no policy is given', () => {
+    expect(isGamePickable(mondayNight, lock, afterLock)).toBe(false);
+  });
+});
+
+describe('cardLockState', () => {
+  const lock = new Date('2026-10-11T13:30:00Z');
+  const games = [
+    new Date('2026-10-11T17:00:00Z'),
+    new Date('2026-10-11T20:05:00Z'),
+    new Date('2026-10-13T00:15:00Z'),
+  ];
+
+  it('treats the card as one unit under the default rule', () => {
+    const before = cardLockState(games, lock, 'first_kickoff', new Date('2026-10-10T00:00:00Z'));
+    expect(before).toMatchObject({ allLocked: false, openCount: 3 });
+    expect(before.nextLockAt?.toISOString()).toBe(lock.toISOString());
+
+    const after = cardLockState(games, lock, 'first_kickoff', new Date('2026-10-11T14:00:00Z'));
+    expect(after).toMatchObject({ allLocked: true, openCount: 0, nextLockAt: null });
+  });
+
+  it('counts down to the next kickoff under the per-game rule', () => {
+    const state = cardLockState(games, lock, 'per_game', new Date('2026-10-11T18:00:00Z'));
+    // The 1pm game has gone; two remain, and the next lock is the 4:05.
+    expect(state).toMatchObject({ allLocked: false, openCount: 2 });
+    expect(state.nextLockAt?.toISOString()).toBe('2026-10-11T20:05:00.000Z');
+  });
+
+  it('is finished under the per-game rule only once every game has started', () => {
+    const state = cardLockState(games, lock, 'per_game', new Date('2026-10-13T01:00:00Z'));
+    expect(state).toMatchObject({ allLocked: true, openCount: 0, nextLockAt: null });
+  });
+
+  it('is not locked by an empty slate, under either rule', () => {
+    // No games yet is "the week has not opened", not "you are too late" — and
+    // Home renders that distinction as "Make your picks" vs "Card locked".
+    expect(cardLockState([], null, 'per_game', new Date())).toMatchObject({ allLocked: false });
+    expect(cardLockState([], null, 'first_kickoff', new Date())).toMatchObject({ allLocked: false });
+  });
+
+  it('still locks once every game of a real slate has started', () => {
+    expect(
+      cardLockState(games, lock, 'per_game', new Date('2026-10-13T01:00:00Z')).allLocked,
+    ).toBe(true);
+  });
+
+  it('ignores an unparseable kickoff rather than counting down to it', () => {
+    const state = cardLockState(['not a date', games[2]!], lock, 'per_game', new Date('2026-10-11T18:00:00Z'));
+    expect(state.nextLockAt?.toISOString()).toBe(games[2]!.toISOString());
   });
 });

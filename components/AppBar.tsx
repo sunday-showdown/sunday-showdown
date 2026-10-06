@@ -1,12 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 interface Props {
   title: string;
   subtitle?: ReactNode;
-  /** Href for a back chevron. Omit on a tab root. */
+  /**
+   * Where the back chevron goes. A path is a normal link; the literal "back"
+   * returns to wherever the person came from, which is what a screen reachable
+   * from several places needs — a player's profile opened from chat should not
+   * drop you on Friends.
+   */
   back?: string;
   /** Actions pinned to the right of the compact bar — bell, switcher, menu. */
   trailing?: ReactNode;
@@ -28,6 +34,7 @@ interface Props {
  * still needs its own breathing room there.
  */
 export default function AppBar({ title, subtitle, back, trailing, compact }: Props) {
+  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const bar = useRef<HTMLElement>(null);
 
@@ -82,21 +89,22 @@ export default function AppBar({ title, subtitle, back, trailing, compact }: Pro
         }}
       >
         <div className="mx-auto flex h-11 max-w-md items-center gap-1 px-2">
-          {back ? (
+          {back === 'back' ? (
+            <button
+              type="button"
+              onClick={() => router.back()}
+              aria-label="Back"
+              className="tap -ml-1 flex items-center justify-center rounded-xl text-ink active:bg-raised"
+            >
+              <BackChevron />
+            </button>
+          ) : back ? (
             <Link
               href={back}
               aria-label="Back"
               className="tap -ml-1 flex items-center justify-center rounded-xl text-ink active:bg-raised"
             >
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="m14.5 6-6 6 6 6"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <BackChevron />
             </Link>
           ) : (
             <span className="w-1" />
@@ -124,5 +132,19 @@ export default function AppBar({ title, subtitle, back, trailing, compact }: Pro
         </div>
       )}
     </>
+  );
+}
+
+function BackChevron() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="m14.5 6-6 6 6 6"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

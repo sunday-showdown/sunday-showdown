@@ -46,7 +46,11 @@ export default async function ChannelPage({ params }: { params: Promise<{ id: st
               href={`/u/${channel.partner.userId}`}
               aria-label={`${channel.partner.username}'s profile`}
             >
-              <Avatar username={channel.partner.username} size="sm" />
+              <Avatar
+                username={channel.partner.username}
+                url={channel.partner.avatarUrl}
+                size="sm"
+              />
             </Link>
           ) : channel.topic ? (
             <span className="max-w-[160px] truncate text-[11px] text-muted">{channel.topic}</span>

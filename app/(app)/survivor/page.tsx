@@ -210,6 +210,27 @@ export default async function SurvivorPage({
       />
 
       <div className="mt-5 space-y-2">
+        <div className="px-4">
+          <Link
+            href="/survivor/join"
+            className="card flex w-full items-center gap-3 px-4 py-3 active:bg-raised"
+          >
+            <span
+              aria-hidden="true"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-raised text-[16px]"
+            >
+              🔑
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
+                Somebody sent you a code?
+              </div>
+              <div className="mt-0.5 text-[13.5px] font-bold">Join another pool</div>
+            </div>
+            <span className="shrink-0 text-muted">›</span>
+          </Link>
+        </div>
+
         <PoolInvite
           poolName={pool.name as string}
           inviteCode={pool.invite_code as string}

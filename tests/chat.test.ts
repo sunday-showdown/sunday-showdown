@@ -88,7 +88,7 @@ describe('channelLabel', () => {
         ...base,
         kind: 'dm',
         name: 'Direct message',
-        partner: { userId: 'u2', username: 'dave' },
+        partner: { userId: 'u2', username: 'dave', avatarUrl: null },
       }),
     ).toBe('dave');
   });

@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
 const BUCKET = 'chat-media';
 
 /** What an upload is for, which decides who is allowed to make it. */
-type Purpose = 'chat' | 'league';
+type Purpose = 'chat' | 'league' | 'avatar';
 /** 8 MB. A phone photo is 3-5; a long reaction GIF can be 6. */
 const MAX_BYTES = 8 * 1024 * 1024;
 /** Uploads per person per window, so a stuck client cannot fill the bucket. */
@@ -41,7 +41,9 @@ export async function POST(request: Request) {
     return Response.json({ error: 'No file was attached.' }, { status: 400 });
   }
 
-  const purpose: Purpose = form.get('purpose') === 'league' ? 'league' : 'chat';
+  const requested = form.get('purpose');
+  const purpose: Purpose =
+    requested === 'league' ? 'league' : requested === 'avatar' ? 'avatar' : 'chat';
   const leagueId = typeof form.get('leagueId') === 'string' ? (form.get('leagueId') as string) : null;
   if (file.size === 0) {
     return Response.json({ error: 'That file is empty.' }, { status: 400 });
@@ -65,7 +67,9 @@ export async function POST(request: Request) {
 
   const supabase = await createServerSupabase();
 
-  if (purpose === 'league') {
+  if (purpose === 'avatar') {
+    // Nothing to authorise: it is your own face, on your own row.
+  } else if (purpose === 'league') {
     // A league picture is the commissioner's to set. Checked here because this
     // route runs with the service role to write the file, so RLS on `leagues`
     // is not standing behind it.
@@ -100,7 +104,9 @@ export async function POST(request: Request) {
   const path =
     purpose === 'league'
       ? `leagues/${leagueId}/${crypto.randomUUID()}.${EXTENSION[image.format]}`
-      : `${user.id}/${crypto.randomUUID()}.${EXTENSION[image.format]}`;
+      : purpose === 'avatar'
+        ? `avatars/${user.id}/${crypto.randomUUID()}.${EXTENSION[image.format]}`
+        : `${user.id}/${crypto.randomUUID()}.${EXTENSION[image.format]}`;
 
   const admin = createAdminClient();
   const { error } = await admin.storage.from(BUCKET).upload(path, bytes, {
@@ -122,10 +128,13 @@ export async function POST(request: Request) {
     data: { publicUrl },
   } = admin.storage.from(BUCKET).getPublicUrl(path);
 
+  // Written here rather than in a second request, so a successful upload and a
+  // profile still showing the old picture cannot come apart.
   if (purpose === 'league' && leagueId) {
-    // Written here rather than in a second request, so a successful upload and
-    // a league still showing the old picture cannot come apart.
     await supabase.from('leagues').update({ avatar_url: publicUrl }).eq('id', leagueId);
+  }
+  if (purpose === 'avatar') {
+    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('user_id', user.id);
   }
 
   return Response.json({

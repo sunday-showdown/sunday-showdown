@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 // Five tabs is the practical ceiling on a phone. The extra game modes live on
@@ -24,6 +24,8 @@ export default function BottomNav() {
   // is two rows of chrome competing for the same thumb.
   const inRoom = pathname.startsWith('/feed/c/');
 
+  const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const refresh = useCallback(() => {
     fetch('/api/channels')
       .then((response) => (response.ok ? response.json() : { unread: 0 }))
@@ -44,10 +46,16 @@ export default function BottomNav() {
     const supabase = createClient();
     const channel = supabase
       .channel('nav-unread')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, refresh)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
+        // Debounced: the subscription cannot be filtered by channel, so a busy
+        // Sunday in any room would otherwise be one request per message.
+        if (pending.current) clearTimeout(pending.current);
+        pending.current = setTimeout(refresh, 400);
+      })
       .subscribe();
 
     return () => {
+      if (pending.current) clearTimeout(pending.current);
       void supabase.removeChannel(channel);
     };
   }, [pathname, inRoom, refresh]);

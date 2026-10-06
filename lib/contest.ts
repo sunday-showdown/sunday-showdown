@@ -100,15 +100,76 @@ export function isCardLocked(lockTime: Date | string | null, now: Date = new Dat
  * future. The second half is what stops a Thursday game being picked on Friday
  * while the rest of the card remains open.
  */
+/**
+ * Which rule a league locks picks under.
+ *
+ * Mirrors leagues.lock_policy, and must agree with pick_lock_time() in
+ * migration 0020 — the database decides what is actually allowed, and a UI that
+ * disagrees either blocks a legal pick or offers an illegal one.
+ */
+export type LockPolicy = 'first_kickoff' | 'per_game';
+
 export function isGamePickable(
   kickoff: Date | string,
   lockTime: Date | string | null,
   now: Date = new Date(),
+  policy: LockPolicy = 'first_kickoff',
 ): boolean {
-  if (isCardLocked(lockTime, now)) return false;
+  // Under the per-game rule the contest's lock time is not consulted at all:
+  // a Monday night game is pickable on Monday afternoon even though the card
+  // "locked" on Sunday morning.
+  if (policy !== 'per_game' && isCardLocked(lockTime, now)) return false;
+
   const start = kickoff instanceof Date ? kickoff : new Date(kickoff);
   if (Number.isNaN(start.getTime())) return false;
   return now.getTime() < start.getTime();
+}
+
+export interface CardLockState {
+  /** Nothing on the card can still be picked. */
+  allLocked: boolean;
+  /** When the next thing locks, for the countdown. Null when nothing is left. */
+  nextLockAt: Date | null;
+  /** How many games are still open. */
+  openCount: number;
+}
+
+/**
+ * What the header should say about locking.
+ *
+ * Under the default rule this is just the contest's lock time, and the whole
+ * card goes at once. Under the per-game rule there is no single moment: the
+ * countdown has to point at the next kickoff still to come, and the card is
+ * only finished once every game has started.
+ */
+export function cardLockState(
+  kickoffs: readonly (Date | string)[],
+  lockTime: Date | string | null,
+  policy: LockPolicy = 'first_kickoff',
+  now: Date = new Date(),
+): CardLockState {
+  if (policy !== 'per_game') {
+    const locked = isCardLocked(lockTime, now);
+    return {
+      allLocked: locked,
+      nextLockAt: locked || !lockTime ? null : new Date(lockTime),
+      openCount: locked ? 0 : kickoffs.length,
+    };
+  }
+
+  const upcoming = kickoffs
+    .map((kickoff) => (kickoff instanceof Date ? kickoff : new Date(kickoff)))
+    .filter((start) => !Number.isNaN(start.getTime()) && start.getTime() > now.getTime())
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  return {
+    // A week with no schedule yet has not locked — it has not opened. Without
+    // the length check those two are indistinguishable, and Home would tell
+    // somebody their card was locked before a single game existed.
+    allLocked: kickoffs.length > 0 && upcoming.length === 0,
+    nextLockAt: upcoming[0] ?? null,
+    openCount: upcoming.length,
+  };
 }
 
 /** Milliseconds until the lock, or 0 once it has passed. */

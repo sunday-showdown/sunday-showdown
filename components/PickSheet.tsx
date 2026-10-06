@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import PickCard, { type Game, type GameOdds, type Selection } from './PickCard';
-import { isGamePickable, isCardLocked, timeUntilLock } from '@/lib/contest';
+import { isGamePickable, cardLockState, type LockPolicy } from '@/lib/contest';
 import { formatCountdown } from '@/lib/format';
 import type { PickemMarket } from '@/lib/types';
 import { pointsForOdds } from '@/lib/odds';
@@ -17,6 +17,7 @@ export interface ExistingPick {
 interface Props {
   challengeId: string;
   lockTime: string | null;
+  lockPolicy?: LockPolicy;
   enabledMarkets: readonly string[];
   games: readonly Game[];
   oddsByGame: Record<string, GameOdds[]>;
@@ -26,6 +27,7 @@ interface Props {
 export default function PickSheet({
   challengeId,
   lockTime,
+  lockPolicy = 'first_kickoff',
   enabledMarkets,
   games,
   oddsByGame,
@@ -53,7 +55,16 @@ export default function PickSheet({
     return () => clearInterval(id);
   }, []);
 
-  const locked = isCardLocked(lockTime, now);
+  // Policy-aware, because under the per-game rule there is no single moment the
+  // card locks — and treating the contest's lock time as one would refuse picks
+  // the database would have accepted. See pick_lock_time() in migration 0020.
+  const lockState = cardLockState(
+    games.map((game) => game.start_time),
+    lockTime,
+    lockPolicy,
+    now,
+  );
+  const locked = lockState.allLocked;
 
   const current = (gameId: string): Selection | null =>
     draft.has(gameId) ? draft.get(gameId)! : (saved.get(gameId) ?? null);
@@ -162,8 +173,12 @@ export default function PickSheet({
       >
         <div className="grid grid-cols-3 gap-2">
           <Stat
-            label={locked ? 'Locked' : 'Locks in'}
-            value={locked ? 'FINAL' : formatCountdown(timeUntilLock(lockTime, now))}
+            label={locked ? 'Locked' : lockPolicy === 'per_game' ? 'Next locks' : 'Locks in'}
+            value={
+              locked || !lockState.nextLockAt
+                ? 'FINAL'
+                : formatCountdown(lockState.nextLockAt.getTime() - now.getTime())
+            }
             tone={locked ? 'text-muted' : 'text-ink'}
           />
           <Stat
@@ -190,7 +205,7 @@ export default function PickSheet({
             odds={oddsByGame[game.id] ?? []}
             enabledMarkets={enabledMarkets}
             selected={current(game.id)}
-            pickable={!locked && isGamePickable(game.start_time, lockTime, now)}
+            pickable={isGamePickable(game.start_time, lockTime, now, lockPolicy)}
             onSelect={(choice) => select(game.id, choice)}
           />
         ))}

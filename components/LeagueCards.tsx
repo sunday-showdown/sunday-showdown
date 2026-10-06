@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { LEAGUE_COOKIE } from '@/lib/league-cookie';
 import { formatCountdown } from '@/lib/format';
+import LeagueBadge from './LeagueBadge';
 import type { LeagueCard } from '@/lib/dashboard';
 
 /**
@@ -46,7 +47,8 @@ export default function LeagueCards({
               active ? 'border-brand/50' : ''
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
+              <LeagueBadge name={card.league.name} url={card.league.avatar_url} size={32} />
               <span className="min-w-0 flex-1 truncate text-[15px] font-bold">
                 {card.league.name}
               </span>

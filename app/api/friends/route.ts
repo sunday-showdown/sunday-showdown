@@ -76,7 +76,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('user_id, username, favorite_team')
+    .select('user_id, username, avatar_url, favorite_team')
     .ilike('username', `%${safe}%`)
     .neq('user_id', user.id)
     .limit(20);
@@ -98,6 +98,7 @@ export async function GET(request: Request) {
     results: (data ?? []).map((p) => ({
       userId: p.user_id as string,
       username: p.username as string,
+      avatarUrl: (p.avatar_url as string) ?? null,
       favoriteTeam: (p.favorite_team as string) ?? null,
       following: followed.has(p.user_id as string),
     })),

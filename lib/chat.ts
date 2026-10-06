@@ -34,7 +34,7 @@ export interface ChannelSummary {
   lastMessageAt: string | null;
   unread: number;
   /** For a DM, the other person. Null for league and mode channels. */
-  partner: { userId: string; username: string } | null;
+  partner: { userId: string; username: string; avatarUrl: string | null } | null;
 }
 
 export interface MessageAuthor {
@@ -195,14 +195,13 @@ export async function loadChannels(
 
   const partnerIds = [...new Set(partnerOf.values())];
   const { data: profiles } = partnerIds.length
-    ? await db.from('profiles').select('user_id, username').in('user_id', partnerIds)
-    : { data: [] as { user_id: string; username: string }[] };
+    ? await db.from('profiles').select('user_id, username, avatar_url').in('user_id', partnerIds)
+    : { data: [] as { user_id: string; username: string; avatar_url: string | null }[] };
 
-  const nameOf = new Map(
-    ((profiles ?? []) as { user_id: string; username: string }[]).map((p) => [
-      p.user_id,
-      p.username,
-    ]),
+  const personOf = new Map(
+    ((profiles ?? []) as { user_id: string; username: string; avatar_url: string | null }[]).map(
+      (p) => [p.user_id, p],
+    ),
   );
 
   const channels = ((rows ?? []) as ChannelRow[])
@@ -222,7 +221,11 @@ export async function loadChannels(
         unread: unread.get(row.id) ?? 0,
         partner:
           row.kind === 'dm' && partnerId
-            ? { userId: partnerId, username: nameOf.get(partnerId) ?? 'Someone' }
+            ? {
+                userId: partnerId,
+                username: personOf.get(partnerId)?.username ?? 'Someone',
+                avatarUrl: personOf.get(partnerId)?.avatar_url ?? null,
+              }
             : null,
       };
     })
@@ -262,10 +265,14 @@ export async function loadChannel(
     if (otherId) {
       const { data: profile } = await db
         .from('profiles')
-        .select('username')
+        .select('username, avatar_url')
         .eq('user_id', otherId)
         .maybeSingle();
-      partner = { userId: otherId, username: (profile?.username as string) ?? 'Someone' };
+      partner = {
+        userId: otherId,
+        username: (profile?.username as string) ?? 'Someone',
+        avatarUrl: (profile?.avatar_url as string) ?? null,
+      };
     }
   }
 

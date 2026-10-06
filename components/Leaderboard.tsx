@@ -6,6 +6,7 @@ import Avatar from './Avatar';
 import type { StandingRow } from '@/lib/standings';
 
 export interface RankedPlayer extends StandingRow {
+  avatarUrl: string | null;
   currentStreak: number;
   longestStreak: number;
 }
@@ -108,7 +109,11 @@ export default function Leaderboard({
                   href={`/u/${entry.row.userId}`}
                   className="flex w-[30%] flex-col items-center"
                 >
-                  <Avatar username={entry.row.username} size={entry.place === 1 ? 'lg' : 'md'} />
+                  <Avatar
+                    username={entry.row.username}
+                    url={entry.row.avatarUrl}
+                    size={entry.place === 1 ? 'lg' : 'md'}
+                  />
                   <span className="mt-1.5 w-full truncate text-center text-[12px] font-bold">
                     {entry.row.username}
                   </span>
@@ -147,7 +152,7 @@ export default function Leaderboard({
                       {board === 'points' && <Movement places={row.movement} />}
                     </span>
 
-                    <Avatar username={row.username} size="sm" />
+                    <Avatar username={row.username} url={row.avatarUrl} size="sm" />
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">

@@ -9,6 +9,9 @@ export interface LeagueSummary {
   season: number;
   current_week: number;
   commissioner_id: string;
+  /** Mirrors leagues.lock_policy; see lib/contest.ts for what it changes. */
+  lock_policy: 'first_kickoff' | 'per_game';
+  avatar_url: string | null;
 }
 
 export interface WeekData {
@@ -46,7 +49,7 @@ export async function loadMyLeagues(
 ): Promise<LeagueSummary[]> {
   const { data, error } = await db
     .from('league_members')
-    .select('leagues(id, name, season, current_week, commissioner_id)')
+    .select('leagues(id, name, season, current_week, commissioner_id, lock_policy, avatar_url)')
     .eq('user_id', userId);
 
   if (error) throw new Error(`failed to load leagues: ${error.message}`);

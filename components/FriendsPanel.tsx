@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Avatar from './Avatar';
 import { useRouter } from 'next/navigation';
 
 export interface FriendRow {
   userId: string;
   username: string;
+  avatarUrl: string | null;
   favoriteTeam: string | null;
   following: boolean;
   followsYou: boolean;
@@ -16,6 +18,7 @@ export interface FriendRow {
 interface SearchHit {
   userId: string;
   username: string;
+  avatarUrl: string | null;
   favoriteTeam: string | null;
   following: boolean;
 }
@@ -111,6 +114,7 @@ export default function FriendsPanel({ friends }: { friends: readonly FriendRow[
                 key={hit.userId}
                 userId={hit.userId}
                 username={hit.username}
+                avatarUrl={hit.avatarUrl}
                 subtitle={hit.favoriteTeam ?? 'Sunday Showdown'}
                 following={hit.following}
                 busy={busy === hit.userId}
@@ -171,6 +175,7 @@ function Group({
             key={row.userId}
             userId={row.userId}
             username={row.username}
+            avatarUrl={row.avatarUrl}
             subtitle={
               row.points !== null
                 ? `${Math.round(row.points)} pts this season`
@@ -189,6 +194,7 @@ function Group({
 function PersonRow({
   userId,
   username,
+  avatarUrl = null,
   subtitle,
   following,
   busy,
@@ -196,6 +202,7 @@ function PersonRow({
 }: {
   userId: string;
   username: string;
+  avatarUrl?: string | null;
   subtitle: string;
   following: boolean;
   busy: boolean;
@@ -203,9 +210,7 @@ function PersonRow({
 }) {
   return (
     <div className="card flex items-center gap-3 px-3.5 py-2.5">
-      <span className="display flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised text-[15px] text-muted">
-        {username.slice(0, 2).toUpperCase()}
-      </span>
+      <Avatar username={username} url={avatarUrl} size="lg" />
 
       <Link href={`/u/${userId}`} className="min-w-0 flex-1">
         <div className="truncate text-[15px] font-bold">{username}</div>

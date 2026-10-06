@@ -3,7 +3,8 @@ import { notFound } from 'next/navigation';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadSeasonStandings } from '@/lib/standings';
 import LeagueManager, { type Member } from '@/components/LeagueManager';
-import LeagueSettings, { LeagueBadge } from '@/components/LeagueSettings';
+import LeagueSettings from '@/components/LeagueSettings';
+import LeagueBadge from '@/components/LeagueBadge';
 import AppBar from '@/components/AppBar';
 
 export const metadata = { title: 'League' };

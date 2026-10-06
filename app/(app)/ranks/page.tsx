@@ -45,19 +45,26 @@ export default async function RanksPage({
   const { data: profiles } = rows.length
     ? await supabase
         .from('profiles')
-        .select('user_id, current_pickem_streak, longest_pickem_streak')
+        .select('user_id, avatar_url, current_pickem_streak, longest_pickem_streak')
         .in('user_id', rows.map((row) => row.userId))
     : { data: [] };
 
-  const streakOf = new Map(
-    ((profiles ?? []) as { user_id: string; current_pickem_streak: number; longest_pickem_streak: number }[])
-      .map((p) => [p.user_id, p]),
+  const extraOf = new Map(
+    (
+      (profiles ?? []) as {
+        user_id: string;
+        avatar_url: string | null;
+        current_pickem_streak: number;
+        longest_pickem_streak: number;
+      }[]
+    ).map((p) => [p.user_id, p]),
   );
 
   const players: RankedPlayer[] = rows.map((row) => ({
     ...row,
-    currentStreak: streakOf.get(row.userId)?.current_pickem_streak ?? 0,
-    longestStreak: streakOf.get(row.userId)?.longest_pickem_streak ?? 0,
+    avatarUrl: extraOf.get(row.userId)?.avatar_url ?? null,
+    currentStreak: extraOf.get(row.userId)?.current_pickem_streak ?? 0,
+    longestStreak: extraOf.get(row.userId)?.longest_pickem_streak ?? 0,
   }));
 
   return (

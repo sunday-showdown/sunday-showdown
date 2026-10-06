@@ -45,7 +45,7 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
 
   return (
     <main className="pb-6">
-      <AppBar title={profile.username as string} back="/friends" compact />
+      <AppBar title={profile.username as string} back="back" compact />
 
       <header className="flex items-center gap-3 px-4 pb-3 pt-1">
         <Avatar

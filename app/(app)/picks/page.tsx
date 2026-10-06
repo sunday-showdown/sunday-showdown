@@ -102,6 +102,7 @@ export default async function PicksPage({
         <PickSheet
           challengeId={data.challenge.id}
           lockTime={data.challenge.lock_time}
+          lockPolicy={league.lock_policy}
           enabledMarkets={data.challenge.enabled_markets}
           games={data.games}
           oddsByGame={data.oddsByGame}

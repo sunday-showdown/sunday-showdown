@@ -23,7 +23,7 @@ export default async function FriendsPage() {
   const { data: profiles } = everyone.length
     ? await supabase
         .from('profiles')
-        .select('user_id, username, favorite_team, career_pickem_wins')
+        .select('user_id, username, avatar_url, favorite_team, career_pickem_wins')
         .in('user_id', everyone)
     : { data: [] };
 
@@ -42,6 +42,7 @@ export default async function FriendsPage() {
     .map((p) => ({
       userId: p.user_id as string,
       username: p.username as string,
+      avatarUrl: (p.avatar_url as string) ?? null,
       favoriteTeam: (p.favorite_team as string) ?? null,
       following: followingIds.has(p.user_id as string),
       followsYou: followerIds.has(p.user_id as string),

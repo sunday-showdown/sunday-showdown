@@ -316,7 +316,7 @@ function ChannelRow({ channel }: { channel: ChannelSummary }) {
       className={`card flex items-center gap-3 px-3.5 py-3 ${channel.unread > 0 ? 'card-hot' : ''}`}
     >
       {isDm && channel.partner ? (
-        <Avatar username={channel.partner.username} size="md" />
+        <Avatar username={channel.partner.username} url={channel.partner.avatarUrl} size="md" />
       ) : (
         <span
           aria-hidden="true"

@@ -3,6 +3,7 @@ import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues } from '@/lib/week';
 import EmptyState from '@/components/EmptyState';
 import AppBar from '@/components/AppBar';
+import LeagueBadge from '@/components/LeagueBadge';
 
 export const metadata = { title: 'Leagues' };
 export const dynamic = 'force-dynamic';
@@ -34,9 +35,10 @@ export default async function LeaguesPage() {
               <Link
                 key={league.id}
                 href={`/leagues/${league.id}`}
-                className="card flex items-center justify-between px-4 py-3.5"
+                className="card flex items-center gap-3.5 px-4 py-3.5"
               >
-                <div className="min-w-0">
+                <LeagueBadge name={league.name} url={league.avatar_url} size={44} />
+                <div className="min-w-0 flex-1">
                   <div className="display truncate text-[19px] leading-none">{league.name}</div>
                   <div className="mt-1 text-[11px] text-muted">
                     {league.season} · week {league.current_week}
@@ -45,7 +47,7 @@ export default async function LeaguesPage() {
                     )}
                   </div>
                 </div>
-                <span className="text-muted">›</span>
+                <span className="shrink-0 text-muted">›</span>
               </Link>
             ))}
           </div>

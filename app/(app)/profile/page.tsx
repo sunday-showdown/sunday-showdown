@@ -5,11 +5,13 @@ import { formatRecord } from '@/lib/format';
 import SignOutButton from '@/components/SignOutButton';
 import AppBar from '@/components/AppBar';
 import AchievementGrid, { type AchievementTile } from '@/components/AchievementGrid';
+import AvatarUpload from '@/components/AvatarUpload';
 
 export const metadata = { title: 'Profile' };
 
 interface ProfileRow {
   username: string;
+  avatar_url: string | null;
   favorite_team: string | null;
   career_pickem_wins: number;
   career_pickem_losses: number;
@@ -33,7 +35,7 @@ export default async function ProfilePage() {
     supabase
       .from('profiles')
       .select(
-        'username, favorite_team, career_pickem_wins, career_pickem_losses, career_pickem_pushes, career_ml_wins, career_ml_losses, career_spread_wins, career_spread_losses, career_total_wins, career_total_losses, current_pickem_streak, longest_pickem_streak, weekly_wins_count',
+        'username, avatar_url, favorite_team, career_pickem_wins, career_pickem_losses, career_pickem_pushes, career_ml_wins, career_ml_losses, career_spread_wins, career_spread_losses, career_total_wins, career_total_losses, current_pickem_streak, longest_pickem_streak, weekly_wins_count',
       )
       .eq('user_id', user.id)
       .maybeSingle<ProfileRow>(),
@@ -64,6 +66,29 @@ export default async function ProfilePage() {
   return (
     <main className="pb-4">
       <AppBar title={profile?.username ?? 'Your profile'} subtitle={user.email} />
+
+      <AvatarUpload
+        username={profile?.username ?? 'you'}
+        avatarUrl={profile?.avatar_url ?? null}
+      />
+
+      <section className="px-4 pb-2">
+        <Link href="/bets" className="card flex items-center gap-3 px-4 py-3 active:bg-raised">
+          <span
+            aria-hidden="true"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-win/15 text-[16px]"
+          >
+            📊
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
+              Sportsbook record
+            </div>
+            <div className="mt-0.5 text-[13.5px] font-bold">Units, ROI and your real record</div>
+          </div>
+          <span className="shrink-0 text-muted">›</span>
+        </Link>
+      </section>
 
       <section className="px-4">
         <div className="card grid grid-cols-3 divide-x divide-line">

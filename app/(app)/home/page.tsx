@@ -3,7 +3,7 @@ import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { resolveLeague } from '@/lib/league';
 import { loadDashboard } from '@/lib/dashboard';
 import { loadWeek } from '@/lib/week';
-import { isCardLocked, timeUntilLock } from '@/lib/contest';
+import { cardLockState } from '@/lib/contest';
 import { formatCountdown, formatKickoff, describePick } from '@/lib/format';
 import { pointsForOdds } from '@/lib/odds';
 import EmptyState from '@/components/EmptyState';
@@ -51,7 +51,14 @@ export default async function HomePage() {
 
   const week = await loadWeek(supabase, user.id, league, league.current_week);
 
-  const locked = isCardLocked(week.challenge?.lock_time ?? null);
+  // Same policy-aware check the pick sheet uses, so the hero on Home and the
+  // card itself cannot disagree about whether there is anything left to do.
+  const lockState = cardLockState(
+    week.games.map((game) => game.start_time),
+    week.challenge?.lock_time ?? null,
+    league.lock_policy,
+  );
+  const locked = lockState.allLocked;
   const picked = week.myPicks.length;
   const total = week.games.length;
   const nextGame = week.games.find((g) => g.status === 'scheduled');
@@ -104,10 +111,12 @@ export default async function HomePage() {
             {!locked && week.challenge && (
               <div className="shrink-0 text-right">
                 <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
-                  Locks in
+                  {league.lock_policy === 'per_game' ? 'Next locks' : 'Locks in'}
                 </div>
                 <div className="display text-glow text-[26px] leading-none tabnum text-brand">
-                  {formatCountdown(timeUntilLock(week.challenge.lock_time))}
+                  {lockState.nextLockAt
+                    ? formatCountdown(lockState.nextLockAt.getTime() - Date.now())
+                    : '—'}
                 </div>
               </div>
             )}

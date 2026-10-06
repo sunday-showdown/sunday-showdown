@@ -2,10 +2,12 @@
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { LEAGUE_COOKIE } from '@/lib/league-cookie';
+import LeagueBadge from './LeagueBadge';
 
 export interface SwitchableLeague {
   id: string;
   name: string;
+  avatar_url?: string | null;
 }
 
 /**
@@ -54,8 +56,9 @@ export default function LeagueSwitcher({
 
   return (
     <div className="relative shrink-0">
-      <div className="flex h-9 items-center gap-1.5 rounded-xl border border-line bg-raised pl-3 pr-2 text-xs font-bold">
-        <span className="max-w-[108px] truncate">{current.name}</span>
+      <div className="flex h-9 items-center gap-1.5 rounded-xl border border-line bg-raised pl-1.5 pr-2 text-xs font-bold">
+        <LeagueBadge name={current.name} url={current.avatar_url ?? null} size={22} />
+        <span className="max-w-[96px] truncate">{current.name}</span>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
