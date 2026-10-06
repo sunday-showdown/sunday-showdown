@@ -7,13 +7,27 @@ import AppBar from '@/components/AppBar';
 export const metadata = { title: 'Notifications' };
 export const dynamic = 'force-dynamic';
 
+/**
+ * The destination a notification carries, if it is a safe one.
+ *
+ * `data` is JSON written by the builders in lib/notifications.ts, but it is read
+ * back as arbitrary JSON — so only an in-app path is accepted. A stored absolute
+ * URL would turn the bell into an open redirect.
+ */
+function urlOf(data: unknown): string | null {
+  if (typeof data !== 'object' || data === null) return null;
+  const url = (data as { url?: unknown }).url;
+  if (typeof url !== 'string') return null;
+  return url.startsWith('/') && !url.startsWith('//') ? url : null;
+}
+
 export default async function NotificationsPage() {
   const user = (await getSessionUser())!;
   const supabase = await createServerSupabase();
 
   const { data } = await supabase
     .from('notifications')
-    .select('id, type, title, message, is_read, created_at')
+    .select('id, type, title, message, is_read, created_at, data')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(60);
@@ -25,6 +39,7 @@ export default async function NotificationsPage() {
     message: (n.message as string) ?? '',
     isRead: Boolean(n.is_read),
     createdAt: n.created_at as string,
+    url: urlOf(n.data),
   }));
 
   return (

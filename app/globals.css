@@ -242,3 +242,34 @@ nav {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* The challenge arrival. Two parts: the fighter lands, and the floor pulses
+   red behind them. Both are purely decorative, and the reduced-motion rule
+   above collapses them to a single frame. */
+@keyframes challenge-stomp {
+  0% {
+    opacity: 0;
+    transform: translateY(-38px) scale(1.5) rotate(-9deg);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(6px) scale(0.94) rotate(2deg);
+  }
+  78% {
+    transform: translateY(-3px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes challenge-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}

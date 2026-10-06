@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { settleChallenge, canonicalPair } from '../lib/h2h';
+import { settleChallenge, canonicalPair, isDuelDue } from '../lib/h2h';
 
 describe('settleChallenge', () => {
   it('awards the higher score', () => {
@@ -53,5 +53,24 @@ describe('canonicalPair', () => {
         expect(userA < userB).toBe(true);
       }
     }
+  });
+});
+
+describe('isDuelDue', () => {
+  it('plays a weekly duel only in its own week', () => {
+    expect(isDuelDue({ duration: 'week', week: 5 }, 5)).toBe(true);
+    expect(isDuelDue({ duration: 'week', week: 5 }, 6)).toBe(false);
+    expect(isDuelDue({ duration: 'week', week: 5 }, 4)).toBe(false);
+  });
+
+  it('plays a season duel every week from the one it started in', () => {
+    expect(isDuelDue({ duration: 'season', week: 5 }, 5)).toBe(true);
+    expect(isDuelDue({ duration: 'season', week: 5 }, 12)).toBe(true);
+  });
+
+  it('never plays a season duel for a week before it was issued', () => {
+    // Otherwise accepting a duel in week 10 would retroactively settle rounds
+    // for weeks neither fighter had agreed to.
+    expect(isDuelDue({ duration: 'season', week: 10 }, 3)).toBe(false);
   });
 });

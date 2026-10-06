@@ -6,6 +6,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SurvivorPickResult } from './types';
+import { buildSurvivorElimination } from './notifications';
+import { notify } from './notify';
 
 export interface SurvivorGame {
   status: string;
@@ -110,6 +112,7 @@ export async function gradeSurvivorWeek(
 
   const gameById = new Map((games ?? []).map((g) => [g.id as string, g]));
   const now = new Date().toISOString();
+  const knockedOut: { poolId: string; userId: string; teamAbbr: string }[] = [];
 
   for (const pick of picks) {
     const game = pick.game_id ? gameById.get(pick.game_id) : null;
@@ -146,8 +149,40 @@ export async function gradeSurvivorWeek(
     }
 
     report.picksGraded += 1;
-    if (result === 'eliminated') report.eliminated += 1;
-    else report.survived += 1;
+    if (result === 'eliminated') {
+      report.eliminated += 1;
+      knockedOut.push({ poolId: pick.pool_id, userId: pick.user_id, teamAbbr: pick.team_abbr });
+    } else {
+      report.survived += 1;
+    }
+  }
+
+  // Being knocked out is the whole point of the format and the app used to say
+  // nothing about it — you found out by opening Survivor and seeing you were
+  // greyed out. Sent after the loop so one query covers every pool name.
+  if (knockedOut.length > 0) {
+    const { data: pools } = await db
+      .from('survivor_pools')
+      .select('id, name')
+      .in('id', [...new Set(knockedOut.map((entry) => entry.poolId))]);
+
+    const nameOf = new Map(
+      ((pools ?? []) as { id: string; name: string }[]).map((row) => [row.id, row.name]),
+    );
+
+    const sent = await notify(
+      db,
+      knockedOut.map((entry) =>
+        buildSurvivorElimination({
+          poolId: entry.poolId,
+          poolName: nameOf.get(entry.poolId) ?? 'your pool',
+          userId: entry.userId,
+          week,
+          teamAbbr: entry.teamAbbr,
+        }),
+      ),
+    );
+    report.warnings.push(...sent.warnings);
   }
 
   const poolIds = [...new Set(picks.map((p) => p.pool_id))];

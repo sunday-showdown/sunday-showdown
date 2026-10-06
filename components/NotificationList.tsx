@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export interface Note {
   id: string;
@@ -10,6 +11,8 @@ export interface Note {
   message: string;
   isRead: boolean;
   createdAt: string;
+  /** Where this notification is about, if anywhere. */
+  url: string | null;
 }
 
 const ICON: Record<string, string> = {
@@ -23,6 +26,10 @@ const ICON: Record<string, string> = {
   achievements: '⭐',
   h2h_received: '⚔️',
   h2h_result: '⚔️',
+  duel_round: '🩸',
+  survivor_eliminated: '🛡️',
+  mention: '💬',
+  direct_message: '✉️',
 };
 
 export default function NotificationList({ notes }: { notes: readonly Note[] }) {
@@ -44,6 +51,17 @@ export default function NotificationList({ notes }: { notes: readonly Note[] }) 
     }
   };
 
+  // Fire and forget: the navigation must not wait on it, and an unread dot that
+  // lingers is a smaller problem than a tap that stalls.
+  const markOne = (note: Note) => {
+    if (note.isRead) return;
+    fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: note.id }),
+    }).catch(() => {});
+  };
+
   return (
     <>
       {unread > 0 && (
@@ -56,23 +74,49 @@ export default function NotificationList({ notes }: { notes: readonly Note[] }) 
       )}
 
       <div className="space-y-2 px-4">
-        {notes.map((note) => (
-          <article
-            key={note.id}
-            className={`card flex gap-3 px-4 py-3 ${note.isRead ? 'opacity-60' : 'border-brand/40'}`}
-          >
-            <span aria-hidden="true" className="text-lg leading-none">
-              {ICON[note.type] ?? '•'}
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold">{note.title}</div>
-              {note.message && (
-                <div className="mt-0.5 text-sm leading-snug text-muted">{note.message}</div>
+        {notes.map((note) => {
+          const body = (
+            <>
+              <span aria-hidden="true" className="text-lg leading-none">
+                {ICON[note.type] ?? '•'}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold">{note.title}</span>
+                {note.message && (
+                  <span className="mt-0.5 block text-sm leading-snug text-muted">
+                    {note.message}
+                  </span>
+                )}
+              </span>
+              {!note.isRead && (
+                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand" />
               )}
-            </div>
-            {!note.isRead && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand" />}
-          </article>
-        ))}
+            </>
+          );
+
+          const className = `card flex gap-3 px-4 py-3 ${
+            note.isRead ? 'opacity-60' : 'border-brand/40'
+          }`;
+
+          // A notification with somewhere to go is a link. Tapping one used to
+          // do nothing, which left the bell as a list of things to go and find
+          // yourself — and a push already lands on the right screen, so the
+          // in-app copy behaving differently was the odd one out.
+          return note.url ? (
+            <Link
+              key={note.id}
+              href={note.url}
+              onClick={() => markOne(note)}
+              className={`${className} active:bg-raised`}
+            >
+              {body}
+            </Link>
+          ) : (
+            <article key={note.id} className={className}>
+              {body}
+            </article>
+          );
+        })}
       </div>
     </>
   );

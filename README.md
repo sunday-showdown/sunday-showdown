@@ -14,7 +14,10 @@ Next.js on Vercel, Postgres on Supabase, no paid services.
 Built:
 
 - **Pick'em** — the full loop: schedule, odds, picking, locking, line freezing, grading, standings, career stats
-- **Other modes** — Survivor, TD Scorer, head-to-head, playground, each with its own pot
+- **Home** — a hub: last week's recap, this week's card with the league it belongs to, and every mode, pool and buy-in you are actually in
+- **Week recap** — how the week went, your best call and the one that hurt, with duels and other modes beside it
+- **Duels** — head to head against any friend or league mate, for a week or the whole season, drawn as a fight: both start at 100 HP and the better card lands the difference
+- **Other modes** — Survivor, TD Scorer, playground, each with its own pot
 - **Chat** — league channels, a room per mode, direct messages, images, GIFs, reactions, @mentions, live over Supabase realtime
 - **Shared bet slips** — post what you placed at a book; the league tails or fades it
 - **Bet tracker** — log what you place and see units, ROI, win rate, streak, and a split by book and by singles vs parlays
@@ -23,7 +26,7 @@ Built:
 - **Auth** — email/password, email confirmation, password reset
 - **Leagues** — create, invite code, join, members, picture, commissioner rules
 - **Sign-in** — email and password, plus Apple and Google when configured (§2c)
-- **Notifications** — in-app bell and web push
+- **Notifications** — in-app bell and web push for results, lock reminders, chat, duels and survivor eliminations; tapping one goes where it is about
 - **PWA** — installable, read-only offline for standings and profile
 
 Optional and off by default: GIF **search**, which needs a free Tenor key —
@@ -296,6 +299,11 @@ build.
 | A commissioner cannot rewrite league counters | column grants, migration 0020 |
 | `member_count` cannot drift | `recount_league_members` trigger |
 | Users cannot rewrite a message's provenance | column grants, migration 0013 |
+| You may only duel a league mate or a mutual follow | `is_friend` + insert policy, migration 0024 |
+| A duel's scores, damage and winner are grading's alone | column grants, migration 0024 |
+| A fighter's record cannot be set by its owner | column grants, migration 0024 |
+| One duel per pair per week, and one open season duel | partial unique indexes, migration 0024 |
+| A week with nothing graded writes no results row | `writeWeeklyResults` skips it, so "the week is in" means it is |
 
 Grading is idempotent: career stats are recomputed from `picks`, never
 incremented, so a re-run after a score correction produces the same numbers.

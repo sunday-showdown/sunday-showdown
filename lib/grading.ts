@@ -11,7 +11,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { gradePick, summarizeWeek, rankWeek } from './scoring';
 import { buildWeeklyActivity, writeActivity } from './activity';
-import { buildWeeklyNotifications, deliver } from './notifications';
+import { buildWeeklyNotifications } from './notifications';
+import { notify } from './notify';
 import { evaluateAchievements, grantAchievements } from './achievements';
 import type { PickemMarket, PickResult } from './types';
 
@@ -218,7 +219,19 @@ async function generateActivity(
     (profiles ?? []).map((p) => [p.user_id as string, p.username as string]),
   );
 
-  const leagueIds = [...new Set(results.map((r) => r.league_id as string))];
+  // A league with picks still pending has not finished its week, so "you
+  // finished 3rd" is premature — results keep moving until the last game is
+  // final. Standings update live regardless; this gates only the statements
+  // that claim the week is over.
+  const stillPending = new Set(
+    ((pickRows ?? []) as Record<string, unknown>[])
+      .filter((pick) => pick.result === 'pending')
+      .map((pick) => pick.league_id as string),
+  );
+
+  const leagueIds = [...new Set(results.map((r) => r.league_id as string))].filter(
+    (leagueId) => !stillPending.has(leagueId),
+  );
   let created = 0;
 
   for (const leagueId of leagueIds) {
@@ -255,7 +268,10 @@ async function generateActivity(
     report.warnings.push(...written.warnings);
     created += written.created;
 
-    const notified = await deliver(
+    // notify() rather than deliver(): a graded week is the single most useful
+    // thing to reach somebody's phone, and the notification key makes a cron
+    // that runs every five minutes buzz once rather than once per pass.
+    const notified = await notify(
       db,
       buildWeeklyNotifications({ season, week, standings: leagueStandings }),
     );
@@ -355,6 +371,16 @@ async function writeWeeklyResults(
   const rows: Record<string, unknown>[] = [];
 
   for (const [leagueId, byUser] of byLeague) {
+    // A league whose every pick is still pending has not played the week yet.
+    // Writing a row of zeroes for it is not harmless: the row is what the rest
+    // of the app reads as "this week is graded", so a week-five table of zeroes
+    // appeared on Saturday with somebody flagged as its winner, and the recap
+    // screen would have reported it as a finished week.
+    const settled = [...byUser.values()]
+      .flat()
+      .some((pick) => pick.result !== 'pending');
+    if (!settled) continue;
+
     const totals = new Map<string, ReturnType<typeof summarizeWeek>>();
     for (const [userId, userPicks] of byUser) {
       totals.set(
