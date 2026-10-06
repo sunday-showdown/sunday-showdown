@@ -5,7 +5,7 @@
 
 import { createAdminClient, isAuthorizedCron } from '@/lib/supabase/admin';
 import { fetchCurrentWeek } from '@/lib/espn/client';
-import { openWeek, freezeLockedContests } from '@/lib/contests';
+import { openWeek, freezeLockedContests, advanceFinishedWeeks } from '@/lib/contests';
 import { sendLockReminders } from '@/lib/reminders';
 
 export const dynamic = 'force-dynamic';
@@ -29,10 +29,20 @@ export async function GET(request: Request) {
       opened.push(await openWeek(db, season, week + 1));
     }
 
+    // After opening, so next week's contest exists to advance onto. ESPN keeps
+    // calling a finished week "current" until the Tuesday, which left the app
+    // sitting on a completed, empty card for most of a day.
+    const advanced = await advanceFinishedWeeks(db, season);
+
     const frozen = await freezeLockedContests(db);
     const reminders = await sendLockReminders(db);
 
-    const warnings = [...opened.flatMap((o) => o.warnings), ...frozen.warnings, ...reminders.warnings];
+    const warnings = [
+      ...opened.flatMap((o) => o.warnings),
+      ...advanced.warnings,
+      ...frozen.warnings,
+      ...reminders.warnings,
+    ];
     await db.from('sync_logs').insert({
       sync_type: 'contest_lifecycle',
       status: warnings.length > 0 ? 'partial' : 'success',
@@ -49,6 +59,8 @@ export async function GET(request: Request) {
       season,
       week,
       challengesCreated: opened.reduce((sum, o) => sum + o.challengesCreated, 0),
+      leaguesAdvanced: advanced.leaguesAdvanced,
+      advancedTo: advanced.to,
       challengesFrozen: frozen.challengesFrozen,
       linesFrozen: frozen.linesFrozen,
       remindersSent: reminders.notified,
