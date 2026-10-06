@@ -16,6 +16,9 @@ import { inspectImage, EXTENSION } from '@/lib/images';
 export const dynamic = 'force-dynamic';
 
 const BUCKET = 'chat-media';
+
+/** What an upload is for, which decides who is allowed to make it. */
+type Purpose = 'chat' | 'league';
 /** 8 MB. A phone photo is 3-5; a long reaction GIF can be 6. */
 const MAX_BYTES = 8 * 1024 * 1024;
 /** Uploads per person per window, so a stuck client cannot fill the bucket. */
@@ -37,6 +40,9 @@ export async function POST(request: Request) {
   if (!(file instanceof File)) {
     return Response.json({ error: 'No file was attached.' }, { status: 400 });
   }
+
+  const purpose: Purpose = form.get('purpose') === 'league' ? 'league' : 'chat';
+  const leagueId = typeof form.get('leagueId') === 'string' ? (form.get('leagueId') as string) : null;
   if (file.size === 0) {
     return Response.json({ error: 'That file is empty.' }, { status: 400 });
   }
@@ -57,22 +63,44 @@ export async function POST(request: Request) {
     );
   }
 
-  // Rate limit by what has already been sent, which is the thing that would
-  // actually fill the bucket.
   const supabase = await createServerSupabase();
-  const since = new Date(Date.now() - RATE_WINDOW_MS).toISOString();
-  const { count: recent } = await supabase
-    .from('messages')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .eq('kind', 'image')
-    .gt('created_at', since);
 
-  if ((recent ?? 0) >= RATE_LIMIT) {
-    return Response.json({ error: 'That is a lot of images. Give it a minute.' }, { status: 429 });
+  if (purpose === 'league') {
+    // A league picture is the commissioner's to set. Checked here because this
+    // route runs with the service role to write the file, so RLS on `leagues`
+    // is not standing behind it.
+    if (!leagueId) {
+      return Response.json({ error: 'Which league?' }, { status: 400 });
+    }
+    const { data: league } = await supabase
+      .from('leagues')
+      .select('commissioner_id')
+      .eq('id', leagueId)
+      .maybeSingle();
+
+    if (!league || league.commissioner_id !== user.id) {
+      return Response.json({ error: 'Only the commissioner can change this.' }, { status: 403 });
+    }
+  } else {
+    // Rate limit by what has already been sent, which is the thing that would
+    // actually fill the bucket.
+    const since = new Date(Date.now() - RATE_WINDOW_MS).toISOString();
+    const { count: recent } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('kind', 'image')
+      .gt('created_at', since);
+
+    if ((recent ?? 0) >= RATE_LIMIT) {
+      return Response.json({ error: 'That is a lot of images. Give it a minute.' }, { status: 429 });
+    }
   }
 
-  const path = `${user.id}/${crypto.randomUUID()}.${EXTENSION[image.format]}`;
+  const path =
+    purpose === 'league'
+      ? `leagues/${leagueId}/${crypto.randomUUID()}.${EXTENSION[image.format]}`
+      : `${user.id}/${crypto.randomUUID()}.${EXTENSION[image.format]}`;
 
   const admin = createAdminClient();
   const { error } = await admin.storage.from(BUCKET).upload(path, bytes, {
@@ -93,6 +121,12 @@ export async function POST(request: Request) {
   const {
     data: { publicUrl },
   } = admin.storage.from(BUCKET).getPublicUrl(path);
+
+  if (purpose === 'league' && leagueId) {
+    // Written here rather than in a second request, so a successful upload and
+    // a league still showing the old picture cannot come apart.
+    await supabase.from('leagues').update({ avatar_url: publicUrl }).eq('id', leagueId);
+  }
 
   return Response.json({
     ok: true,

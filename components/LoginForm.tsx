@@ -4,8 +4,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import OAuthButtons from './OAuthButtons';
+import type { ProviderInfo } from '@/lib/auth-providers';
 
-export default function LoginForm() {
+export default function LoginForm({ providers = [] }: { providers?: readonly ProviderInfo[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get('next') ?? '/home';
@@ -42,7 +44,9 @@ export default function LoginForm() {
         <h1 className="display text-[32px] leading-none">Welcome back</h1>
         <p className="mt-2 text-sm text-muted">Sign in to make this week&apos;s picks.</p>
 
-        <form onSubmit={signIn} className="mt-8 space-y-3">
+        <OAuthButtons providers={providers} next={next} />
+
+        <form onSubmit={signIn} className="mt-6 space-y-3">
           <div>
             <label htmlFor="email" className="mb-1.5 block text-sm font-medium">
               Email

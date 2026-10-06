@@ -15,6 +15,7 @@ const MODES = [
   { href: '/friends', title: 'Friends', blurb: 'Follow and message your rivals.', icon: '🤝', tint: 'bg-win/15' },
   { href: '/leagues', title: 'Leagues', blurb: 'Members, codes and settings.', icon: '👥', tint: 'bg-raised' },
   { href: '/feed/highlights', title: 'Highlights', blurb: 'Results, upsets and streaks.', icon: '📣', tint: 'bg-gold/15' },
+  { href: '/bets', title: 'My bets', blurb: 'Units, ROI and your record.', icon: '📊', tint: 'bg-win/15' },
 ] as const;
 
 export default function ModesHub() {

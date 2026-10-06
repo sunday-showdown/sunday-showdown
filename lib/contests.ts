@@ -56,7 +56,7 @@ export async function openWeek(
 
   const { data: leagues, error: leaguesError } = await db
     .from('leagues')
-    .select('id, current_week')
+    .select('id, current_week, default_markets')
     .eq('season', season);
 
   if (leaguesError) throw new Error(`failed to read leagues: ${leaguesError.message}`);
@@ -95,6 +95,10 @@ export async function openWeek(
       season,
       week,
       lock_time: lockTime.toISOString(),
+      // Whatever the commissioner has the league set to. Applied when the week
+      // opens rather than retroactively, so changing it never alters a contest
+      // people have already picked.
+      enabled_markets: (l.default_markets as string[]) ?? undefined,
     }));
 
   if (rows.length === 0) return report;

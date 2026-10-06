@@ -32,8 +32,9 @@ export default function BetSlipComposer({
 }: {
   open: boolean;
   onClose: () => void;
-  channelId: string;
-  leagueId: string;
+  /** Null logs the bet to your own record without posting it anywhere. */
+  channelId: string | null;
+  leagueId: string | null;
   onShared: () => void;
 }) {
   const [book, setBook] = useState<string>(SPORTSBOOKS[0]!.id);
@@ -119,7 +120,7 @@ export default function BetSlipComposer({
     <Sheet
       open={open}
       onClose={onClose}
-      title="Share a bet"
+      title={channelId ? 'Share a bet' : 'Log a bet'}
       footer={
         <>
           {error && (
@@ -128,7 +129,13 @@ export default function BetSlipComposer({
             </p>
           )}
           <button type="button" disabled={!ready} onClick={share} className="btn-primary w-full text-sm">
-            {busy ? 'Posting…' : price === null ? 'Add the odds' : `Post slip at ${formatOdds(price)}`}
+            {busy
+              ? 'Saving…'
+              : price === null
+                ? 'Add the odds'
+                : channelId
+                  ? `Post slip at ${formatOdds(price)}`
+                  : `Log it at ${formatOdds(price)}`}
           </button>
         </>
       }
@@ -262,8 +269,9 @@ export default function BetSlipComposer({
       />
 
       <p className="pb-2 text-[11px] leading-relaxed text-muted">
-        Sharing only. Nothing here is placed for you, and a slip never changes
-        your league points — it is for the tails and the receipts.
+        {channelId
+          ? 'Sharing only. Nothing here is placed for you, and a slip never changes your league points — it is for the tails and the receipts.'
+          : 'Private to you, and counted in your record. No sportsbook lets an app read your actual wagers, so this is what you tell it.'}
       </p>
     </Sheet>
   );

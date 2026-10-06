@@ -32,8 +32,13 @@ export async function POST(request: Request) {
 
   if (action === 'share') {
     const { channelId, leagueId } = payload as Record<string, unknown>;
-    if (typeof channelId !== 'string' || typeof leagueId !== 'string') {
-      return Response.json({ error: 'channel and league are required' }, { status: 400 });
+
+    // A slip can be logged without being posted. A private bet carries no
+    // league, which is what keeps it out of everyone else's view — the read
+    // policy on shared_bets admits a league's members, and there is no league.
+    const posting = typeof channelId === 'string' && channelId.length > 0;
+    if (posting && typeof leagueId !== 'string') {
+      return Response.json({ error: 'league is required to post a slip' }, { status: 400 });
     }
 
     const slip = validateSlip((payload as Record<string, unknown>).slip);
@@ -46,7 +51,7 @@ export async function POST(request: Request) {
     const { data: bet, error: betError } = await supabase
       .from('shared_bets')
       .insert({
-        league_id: leagueId,
+        league_id: posting ? (leagueId as string) : null,
         user_id: user.id,
         book: slip.book,
         legs: slip.legs,
@@ -62,18 +67,20 @@ export async function POST(request: Request) {
       return Response.json({ error: 'Could not share that slip.' }, { status: 403 });
     }
 
-    const { error: messageError } = await supabase.from('messages').insert({
-      channel_id: channelId,
-      user_id: user.id,
-      kind: 'bet_slip',
-      bet_id: bet.id,
-      body: slip.note,
-    });
+    if (posting) {
+      const { error: messageError } = await supabase.from('messages').insert({
+        channel_id: channelId as string,
+        user_id: user.id,
+        kind: 'bet_slip',
+        bet_id: bet.id,
+        body: slip.note,
+      });
 
-    if (messageError) {
-      // Leave no orphan. The slip only exists to be posted.
-      await supabase.from('shared_bets').delete().eq('id', bet.id).eq('user_id', user.id);
-      return Response.json({ error: 'Could not post that slip.' }, { status: 403 });
+      if (messageError) {
+        // Leave no orphan. A slip meant for a channel only exists to be posted.
+        await supabase.from('shared_bets').delete().eq('id', bet.id).eq('user_id', user.id);
+        return Response.json({ error: 'Could not post that slip.' }, { status: 403 });
+      }
     }
 
     return Response.json({

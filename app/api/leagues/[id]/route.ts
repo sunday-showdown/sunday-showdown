@@ -24,23 +24,57 @@ export async function PATCH(
     return Response.json({ error: 'invalid JSON body' }, { status: 400 });
   }
 
-  const { name } = (body ?? {}) as Record<string, unknown>;
-  if (typeof name !== 'string' || name.trim().length < 3 || name.trim().length > 48) {
-    return Response.json({ error: 'League names are 3–48 characters.' }, { status: 400 });
+  const { name, lockPolicy, markets, allowLateJoin } = (body ?? {}) as Record<string, unknown>;
+
+  // Only what was sent. The settings panel saves one field at a time, and a
+  // partial update must not blank the rest of the rules.
+  const patch: Record<string, unknown> = {};
+
+  if (name !== undefined) {
+    if (typeof name !== 'string' || name.trim().length < 3 || name.trim().length > 48) {
+      return Response.json({ error: 'League names are 3–48 characters.' }, { status: 400 });
+    }
+    patch.name = name.trim();
+  }
+
+  if (lockPolicy !== undefined) {
+    if (lockPolicy !== 'first_kickoff' && lockPolicy !== 'per_game') {
+      return Response.json({ error: 'Unknown lock rule.' }, { status: 400 });
+    }
+    patch.lock_policy = lockPolicy;
+  }
+
+  if (markets !== undefined) {
+    const allowed = ['moneyline', 'spread', 'total'];
+    if (
+      !Array.isArray(markets) ||
+      markets.length === 0 ||
+      markets.some((market) => typeof market !== 'string' || !allowed.includes(market))
+    ) {
+      return Response.json({ error: 'Pick at least one market.' }, { status: 400 });
+    }
+    // De-duplicated and in a fixed order, so the stored array is comparable.
+    patch.default_markets = allowed.filter((market) => markets.includes(market));
+  }
+
+  if (allowLateJoin !== undefined) {
+    patch.allow_late_join = allowLateJoin === true;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return Response.json({ error: 'Nothing to change.' }, { status: 400 });
   }
 
   const supabase = await createServerSupabase();
-  const { error } = await supabase
-    .from('leagues')
-    .update({ name: name.trim() })
-    .eq('id', id);
+  const { error } = await supabase.from('leagues').update(patch).eq('id', id);
 
   if (error) {
-    // The update policy admits only the commissioner.
-    return Response.json({ error: 'Only the commissioner can rename a league.' }, { status: 403 });
+    // The update policy admits only the commissioner, and migration 0020's
+    // column grants decide which fields anybody may set at all.
+    return Response.json({ error: 'Only the commissioner can change this.' }, { status: 403 });
   }
 
-  return Response.json({ ok: true, name: name.trim() });
+  return Response.json({ ok: true });
 }
 
 export async function DELETE(
@@ -84,13 +118,7 @@ export async function DELETE(
     return Response.json({ error: 'Could not remove that member.' }, { status: 403 });
   }
 
-  // member_count is recounted rather than decremented so it cannot drift.
-  const { count } = await supabase
-    .from('league_members')
-    .select('id', { count: 'exact', head: true })
-    .eq('league_id', id);
-
-  await supabase.from('leagues').update({ member_count: count ?? 0 }).eq('id', id);
-
+  // member_count maintains itself — a trigger recounts it from league_members
+  // on every insert and delete. See migration 0021.
   return Response.json({ ok: true });
 }

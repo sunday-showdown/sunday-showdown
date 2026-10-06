@@ -17,10 +17,12 @@ Built:
 - **Other modes** — Survivor, TD Scorer, head-to-head, playground, each with its own pot
 - **Chat** — league channels, a room per mode, direct messages, images, GIFs, reactions, @mentions, live over Supabase realtime
 - **Shared bet slips** — post what you placed at a book; the league tails or fades it
+- **Bet tracker** — log what you place and see units, ROI, win rate, streak, and a split by book and by singles vs parlays
 - **Shared cards** — post your week's card into a channel and watch it grade itself there
 - **Highlights** — the generated feed of winners, upsets and streaks
 - **Auth** — email/password, email confirmation, password reset
-- **Leagues** — create, invite code, join, members, commissioner role
+- **Leagues** — create, invite code, join, members, picture, commissioner rules
+- **Sign-in** — email and password, plus Apple and Google when configured (§2c)
 - **Notifications** — in-app bell and web push
 - **PWA** — installable, read-only offline for standings and profile
 
@@ -100,6 +102,43 @@ npx vercel env add TENOR_API_KEY
 
 Until it exists, `/api/gifs` replies `configured: false`, the picker says search
 is switched off and points at the attach button, and nothing errors.
+
+### 2c. Apple and Google sign-in (optional, recommended)
+
+Email and password works out of the box. Social sign-in is worth switching on
+anyway: the slowest part of getting a friend into a league is the confirmation
+email, and this skips it entirely.
+
+The app reads `/auth/v1/settings` from Supabase and shows a button only for a
+provider that is actually enabled, so there is nothing to change in the code —
+turn one on and the button appears.
+
+**Google** — about five minutes:
+
+1. **console.cloud.google.com → APIs & Services → OAuth consent screen.** Pick
+   *External*, fill in the name and your email, and save. It can stay in
+   *Testing* while it is you and your friends.
+2. **Credentials → Create credentials → OAuth client ID → Web application.**
+3. Under *Authorised redirect URIs* add the callback Supabase shows you, which
+   is `https://<project-ref>.supabase.co/auth/v1/callback`.
+4. Copy the client ID and secret into **Supabase → Authentication → Providers →
+   Google**, and enable it.
+
+**Apple** — needs a paid Apple Developer account ($99/year). If you do not have
+one, Google alone is fine. Otherwise: create a Services ID, enable *Sign in
+with Apple*, add the same Supabase callback URL, generate a key, and paste the
+Services ID and the key into **Supabase → Authentication → Providers → Apple**.
+
+Then, for either, add your app's URLs under **Supabase → Authentication → URL
+Configuration → Redirect URLs**:
+
+```
+http://localhost:3000/auth/callback
+https://your-app.vercel.app/auth/callback
+```
+
+A profile is created automatically for a social sign-in, with a username taken
+from the email address. People can rename themselves afterwards.
 
 ### 3. Run it
 
@@ -186,6 +225,13 @@ ESPN publishes no anytime-TD player props, which is why TD Scorer point values
 are derived from season production (`derive_td_point_value` in migration 0005)
 with a commissioner override.
 
+**No sportsbook feed exists for a person's own bets.** No US book publishes an
+API that would let an app read somebody's wagers, and none offers a public deep
+link that pre-builds one. Both are partner-only. So shared slips and the bet
+tracker are both fed by hand: the app's job is to make entry quick and then do
+the arithmetic — units and ROI rather than a count of wins, since "up $400"
+means nothing without the bet size. `lib/betStats.ts` has the maths.
+
 ## Rules enforced by the database
 
 These are competition-critical, so they are constraints and triggers rather than
@@ -204,6 +250,10 @@ build.
 | One pot per league, season and mode | `pots_one_per_mode_idx`, migration 0013 |
 | A message cannot change author, channel or attachment | `enforce_message_immutability` trigger |
 | A direct message has one conversation per pair | `dm_key` unique, set by `open_dm` |
+| When picks lock follows the league's rule | `pick_lock_time` + `enforce_pick_lock` |
+| Only a pot's owner confirms a payment | `enforce_pot_payment_authority` trigger |
+| A commissioner cannot rewrite league counters | column grants, migration 0020 |
+| `member_count` cannot drift | `recount_league_members` trigger |
 | Users cannot rewrite a message's provenance | column grants, migration 0013 |
 
 Grading is idempotent: career stats are recomputed from `picks`, never
