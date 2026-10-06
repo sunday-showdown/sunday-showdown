@@ -134,7 +134,8 @@ Configuration → Redirect URLs**:
 
 ```
 http://localhost:3000/auth/callback
-https://your-app.vercel.app/auth/callback
+https://sundayshowdown.vercel.app/auth/callback
+https://sunday-showdown-navy.vercel.app/auth/callback
 ```
 
 A profile is created automatically for a social sign-in, with a username taken
@@ -188,7 +189,7 @@ Add two repository secrets under Settings → Secrets and variables → Actions:
 
 | Secret | Value |
 |---|---|
-| `APP_URL` | your deployment URL, no trailing slash — `https://your-app.vercel.app` |
+| `APP_URL` | your deployment URL, no trailing slash — `https://sundayshowdown.vercel.app` |
 | `CRON_SECRET` | the same value as the Vercel environment variable |
 
 | Job | Does |
@@ -203,6 +204,25 @@ app goes quiet in the offseason, re-enable it under the Actions tab.
 
 On a Vercel Pro plan, delete the workflow and move the schedules into
 `vercel.json` as a `crons` array; Vercel's scheduler is more reliable.
+
+## Where it lives
+
+Two URLs, both serving the same deployment:
+
+| URL | |
+|---|---|
+| `sundayshowdown.vercel.app` | the one to share |
+| `sunday-showdown-navy.vercel.app` | the original, kept so older invite links still work |
+
+`sunday-showdown.vercel.app` belongs to a different Vercel account — `.vercel.app`
+subdomains are global — which is where the `-navy` suffix came from in the first
+place. The second domain was added alongside rather than by renaming the
+project, so nothing already shared broke.
+
+Nothing in the code knows either name. Invite links, OAuth redirects and share
+sheets all build from `window.location.origin`, so adding or changing a domain
+needs no deploy. The two places that do know are the `APP_URL` repository secret,
+which the cron workflow calls, and Supabase's redirect allow-list.
 
 ## Data
 
