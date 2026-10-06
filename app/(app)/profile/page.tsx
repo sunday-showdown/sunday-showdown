@@ -3,6 +3,7 @@ import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { loadMyLeagues } from '@/lib/week';
 import { formatRecord } from '@/lib/format';
 import SignOutButton from '@/components/SignOutButton';
+import ReplayTour from '@/components/ReplayTour';
 import AppBar from '@/components/AppBar';
 import AchievementGrid, { type AchievementTile } from '@/components/AchievementGrid';
 import AvatarUpload from '@/components/AvatarUpload';
@@ -186,7 +187,8 @@ export default async function ProfilePage() {
 
       {tiles.length > 0 && <AchievementGrid tiles={tiles} />}
 
-      <section className="mt-8 px-4">
+      <section className="mt-8 space-y-2 px-4">
+        <ReplayTour />
         <SignOutButton />
       </section>
     </main>

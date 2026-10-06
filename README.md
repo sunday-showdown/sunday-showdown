@@ -16,7 +16,9 @@ Built:
 - **Pick'em** — the full loop: schedule, odds, picking, locking, line freezing, grading, standings, career stats
 - **Home** — a hub: last week's recap, this week's card with the league it belongs to, and every mode, pool and buy-in you are actually in
 - **Week recap** — how the week went, your best call and the one that hurt, with duels and other modes beside it
-- **Duels** — head to head against any friend or league mate, for a week or the whole season, drawn as a fight: both start at 100 HP and the better card lands the difference
+- **Duels** — head to head against any friend or league mate, for a week or the whole season, drawn as a fight: both start at 100 HP and the better card lands the difference. Six football-gladiator fighters to pick from, all cosmetic
+- **Ranks** — global by default, filterable to each of your leagues
+- **Onboarding** — four cards on first sign-in, skippable, replayable from your profile
 - **Other modes** — Survivor, TD Scorer, playground, each with its own pot
 - **Chat** — league channels, a room per mode, direct messages, images, GIFs, reactions, @mentions, live over Supabase realtime
 - **Shared bet slips** — post what you placed at a book; the league tails or fades it
@@ -297,6 +299,8 @@ build.
 | When picks lock follows the league's rule | `pick_lock_time` + `enforce_pick_lock` |
 | Only a pot's owner confirms a payment | `enforce_pot_payment_authority` trigger |
 | A commissioner cannot rewrite league counters | column grants, migration 0020 |
+| A survivor pick cannot be entered or re-aimed after kickoff | `enforce_survivor_pick_lock`, migration 0027 |
+| Dedup keys are enforced by indexes upserts can actually use | plain unique indexes, migration 0028 |
 | `member_count` cannot drift | `recount_league_members` trigger |
 | Users cannot rewrite a message's provenance | column grants, migration 0013 |
 | You may only duel a league mate or a mutual follow | `is_friend` + insert policy, migration 0024 |
@@ -307,6 +311,35 @@ build.
 
 Grading is idempotent: career stats are recomputed from `picks`, never
 incremented, so a re-run after a score correction produces the same numbers.
+
+## Demo data
+
+The season's first weeks were empty, which made every board in the app a blank
+slate. Two scripts fill them and take them away again:
+
+```bash
+node scripts/seed-demo.mjs --batch demo-weeks-1-4        # eight players, four weeks of cards
+node scripts/clear-demo.mjs --batch demo-weeks-1-4       # and all of it gone
+node scripts/clear-demo.mjs --all --dry-run              # every batch, without touching anything
+```
+
+Every row the seed writes is recorded in `demo_seed`, and the teardown deletes
+exactly those rows plus whatever grading derived from the weeks they cover.
+Nothing guesses at what "looks like test data", because that guess would be made
+against the same tables real people are using.
+
+The seed does not grade. Run the grade job for each week afterwards, so the
+history is produced by the same code a real week goes through:
+
+```bash
+curl -s -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/grade?season=2026&week=1"
+```
+
+Two things it deliberately leaves alone. It writes no `contest_lines`, which are
+append-only by design and would therefore be permanent; the invented price goes
+on each pick, which is what grading reads anyway. And it seeds no survivor
+picks, because those lock on their own game's kickoff and backfilling them would
+mean doing exactly what a cheating player would do.
 
 ## Adding a feature
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sheet from './Sheet';
+import FighterArt from './FighterArt';
 import {
   ARCHETYPES,
   BANNERS,
@@ -35,7 +36,7 @@ export default function FighterBuilder({ fighter }: { fighter: Fighter }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const preview = { archetype: archetypeOf(archetype), banner: bannerOf(banner) };
+  const preview = archetypeOf(archetype);
 
   const save = async () => {
     const checked = validateFighter({ name, archetype, banner, taunt });
@@ -73,19 +74,17 @@ export default function FighterBuilder({ fighter }: { fighter: Fighter }) {
         onClick={() => setOpen(true)}
         className="card flex w-full items-center gap-3 px-4 py-3 text-left active:bg-raised"
       >
-        <span
-          aria-hidden="true"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[22px]"
-          style={{
-            backgroundImage: `linear-gradient(160deg, ${bannerOf(fighter.banner).from} 0%, ${bannerOf(fighter.banner).to} 100%)`,
-          }}
-        >
-          {archetypeOf(fighter.archetype).glyph}
-        </span>
+        <FighterArt
+          archetype={fighter.archetype}
+          banner={fighter.banner}
+          size={46}
+          className="shrink-0"
+        />
         <span className="min-w-0 flex-1">
           <span className="display block truncate text-[16px] leading-none">{fighter.name}</span>
-          <span className="mt-1 block text-[11px] text-muted">
-            {archetypeOf(fighter.archetype).name} · {fighter.wins}W {fighter.losses}L
+          <span className="mt-1 block truncate text-[11px] text-muted">
+            {archetypeOf(fighter.archetype).name} · {archetypeOf(fighter.archetype).position} ·{' '}
+            {fighter.wins}W {fighter.losses}L
           </span>
         </span>
         <span className="text-[11px] font-bold text-brand">Edit →</span>
@@ -103,19 +102,14 @@ export default function FighterBuilder({ fighter }: { fighter: Fighter }) {
       >
         <div className="space-y-5">
           <div className="flex items-center gap-3 rounded-2xl bg-raised/60 p-3">
-            <span
-              aria-hidden="true"
-              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-[34px]"
-              style={{
-                backgroundImage: `linear-gradient(160deg, ${preview.banner.from} 0%, ${preview.banner.to} 100%)`,
-              }}
-            >
-              {preview.archetype.glyph}
-            </span>
+            <FighterArt archetype={archetype} banner={banner} size={76} className="shrink-0" />
             <div className="min-w-0">
               <div className="display truncate text-[20px] leading-none">{name || 'Unnamed'}</div>
               <div className="mt-1 text-[11px] text-muted">
-                {preview.archetype.name} · signature: {preview.archetype.strike}
+                {preview.name} · {preview.position}
+              </div>
+              <div className="mt-0.5 text-[11px] text-muted">
+                Signature: <span className="font-bold text-ink">{preview.strike}</span>
               </div>
             </div>
           </div>
@@ -143,16 +137,17 @@ export default function FighterBuilder({ fighter }: { fighter: Fighter }) {
                   type="button"
                   onClick={() => setArchetype(option.id)}
                   aria-pressed={archetype === option.id}
-                  className={`card flex flex-col items-center px-2 py-2.5 ${
+                  className={`card flex flex-col items-center px-1.5 py-2 ${
                     archetype === option.id ? 'border-brand/60' : ''
                   }`}
                 >
-                  <span aria-hidden="true" className="text-[20px]">
-                    {option.glyph}
-                  </span>
-                  <span className="mt-1 text-[11px] font-bold">{option.name}</span>
-                  <span className="mt-0.5 text-center text-[9px] leading-tight text-muted">
-                    {option.blurb}
+                  {/* Each tile previews in the colour being chosen, so the two
+                      decisions can be made together rather than one then the
+                      other. */}
+                  <FighterArt archetype={option.id} banner={banner} size={44} />
+                  <span className="mt-1 text-[11px] font-bold leading-none">{option.name}</span>
+                  <span className="mt-1 text-center text-[9px] leading-tight text-muted">
+                    {option.position}
                   </span>
                 </button>
               ))}

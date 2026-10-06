@@ -2,18 +2,27 @@ import Link from 'next/link';
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { resolveLeague } from '@/lib/league';
 import { loadSeasonStandings } from '@/lib/standings';
-import LeagueSwitcher from '@/components/LeagueSwitcher';
+import { loadGlobalStandings } from '@/lib/globalRanks';
 import EmptyState from '@/components/EmptyState';
 import AppBar from '@/components/AppBar';
+import RankScope from '@/components/RankScope';
 import Leaderboard, { type RankedPlayer } from '@/components/Leaderboard';
 
 export const metadata = { title: 'Ranks' };
 export const dynamic = 'force-dynamic';
 
+/**
+ * Ranks, globally by default.
+ *
+ * The league table is still here — it is the one that settles a season — but it
+ * is now one of the filters rather than the only thing on the screen. In an app
+ * where everybody plays the same slate, "who is best overall" is a question
+ * worth being able to ask, and a six-person table could never answer it.
+ */
 export default async function RanksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ league?: string }>;
+  searchParams: Promise<{ league?: string; scope?: string }>;
 }) {
   const user = (await getSessionUser())!;
   const params = await searchParams;
@@ -21,7 +30,12 @@ export default async function RanksPage({
 
   const { leagues, league } = await resolveLeague(supabase, user.id, params.league);
 
-  if (!league) {
+  // An explicit ?league= means they picked that league from the scope row, so
+  // it wins over the default. Everything else is global.
+  const scope = params.league ? params.league : 'global';
+  const season = league?.season ?? new Date().getFullYear();
+
+  if (!league && scope !== 'global') {
     return (
       <main>
         <AppBar title="Ranks" />
@@ -38,53 +52,70 @@ export default async function RanksPage({
     );
   }
 
-  const rows = await loadSeasonStandings(supabase, league.id, league.season);
+  let players: RankedPlayer[];
+  let subtitle: string;
 
-  // Streaks live on the profile, not in weekly_results, so the streak board
-  // needs them joined on. One query for the whole table.
-  const { data: profiles } = rows.length
-    ? await supabase
-        .from('profiles')
-        .select('user_id, avatar_url, current_pickem_streak, longest_pickem_streak')
-        .in('user_id', rows.map((row) => row.userId))
-    : { data: [] };
+  if (scope === 'global') {
+    const rows = await loadGlobalStandings(supabase, season);
+    players = rows;
+    subtitle = `Everyone · ${season}`;
+  } else {
+    const rows = await loadSeasonStandings(supabase, league!.id, league!.season);
 
-  const extraOf = new Map(
-    (
-      (profiles ?? []) as {
-        user_id: string;
-        avatar_url: string | null;
-        current_pickem_streak: number;
-        longest_pickem_streak: number;
-      }[]
-    ).map((p) => [p.user_id, p]),
-  );
+    // Streaks live on the profile rather than in weekly_results, so the streak
+    // board needs them joined on. One query for the whole table.
+    const { data: profiles } = rows.length
+      ? await supabase
+          .from('profiles')
+          .select('user_id, avatar_url, current_pickem_streak, longest_pickem_streak')
+          .in('user_id', rows.map((row) => row.userId))
+      : { data: [] };
 
-  const players: RankedPlayer[] = rows.map((row) => ({
-    ...row,
-    avatarUrl: extraOf.get(row.userId)?.avatar_url ?? null,
-    currentStreak: extraOf.get(row.userId)?.current_pickem_streak ?? 0,
-    longestStreak: extraOf.get(row.userId)?.longest_pickem_streak ?? 0,
-  }));
+    const extraOf = new Map(
+      (
+        (profiles ?? []) as {
+          user_id: string;
+          avatar_url: string | null;
+          current_pickem_streak: number;
+          longest_pickem_streak: number;
+        }[]
+      ).map((p) => [p.user_id, p]),
+    );
+
+    players = rows.map((row) => ({
+      ...row,
+      avatarUrl: extraOf.get(row.userId)?.avatar_url ?? null,
+      currentStreak: extraOf.get(row.userId)?.current_pickem_streak ?? 0,
+      longestStreak: extraOf.get(row.userId)?.longest_pickem_streak ?? 0,
+    }));
+    subtitle = `${league!.name} · ${league!.season}`;
+  }
+
+  const myPlace = players.find((row) => row.userId === user.id)?.rank ?? null;
 
   return (
     <main className="pb-6">
       <AppBar
         title="Ranks"
-        subtitle={`${league.name} · ${league.season}`}
-        trailing={<LeagueSwitcher leagues={leagues} currentId={league.id} />}
+        subtitle={
+          scope === 'global' && myPlace !== null
+            ? `${subtitle} · you are ${myPlace} of ${players.length}`
+            : subtitle
+        }
       />
 
-      {players.length === 0 ? (
-        <EmptyState
-          title="Nothing graded yet"
-          body="The boards fill in automatically once the first week's games are final."
-        />
-      ) : (
-        <div className="px-4">
+      <div className="px-4">
+        <RankScope leagues={leagues} scope={scope} />
+
+        {players.length === 0 ? (
+          <EmptyState
+            title="Nothing graded yet"
+            body="The boards fill in automatically once the first week's games are final."
+          />
+        ) : (
           <Leaderboard rows={players} myUserId={user.id} />
-        </div>
-      )}
+        )}
+      </div>
     </main>
   );
 }

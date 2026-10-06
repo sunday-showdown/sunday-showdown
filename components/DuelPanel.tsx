@@ -8,7 +8,7 @@ import Avatar from './Avatar';
 import BattleArena from './BattleArena';
 import ChallengeAlert from './ChallengeAlert';
 import FighterBuilder from './FighterBuilder';
-import { archetypeOf, bannerOf } from '@/lib/fighters';
+import FighterArt from './FighterArt';
 import type { Duel, DuelsView, Opponent } from '@/lib/duels';
 
 /**
@@ -129,15 +129,12 @@ export default function DuelPanel({
             {view.incoming.map((duel) => (
               <div key={duel.id} className="card card-hot px-4 py-3">
                 <div className="flex items-center gap-2.5">
-                  <span
-                    aria-hidden="true"
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[18px]"
-                    style={{
-                      backgroundImage: `linear-gradient(160deg, ${bannerOf(duel.them.fighter.banner).from} 0%, ${bannerOf(duel.them.fighter.banner).to} 100%)`,
-                    }}
-                  >
-                    {archetypeOf(duel.them.fighter.archetype).glyph}
-                  </span>
+                  <FighterArt
+                    archetype={duel.them.fighter.archetype}
+                    banner={duel.them.fighter.banner}
+                    size={44}
+                    className="shrink-0"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[15px] font-bold">
                       {duel.them.fighter.name}{' '}

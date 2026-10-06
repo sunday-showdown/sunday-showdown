@@ -81,6 +81,10 @@ export async function grantAchievements(
   const report: AwardReport = { granted: 0, warnings: [] };
   if (awards.length === 0) return report;
 
+  // The conflict target is named explicitly. Without it PostgREST arbitrates on
+  // the primary key, which is a fresh uuid and therefore never conflicts — so
+  // ignoreDuplicates had nothing to ignore and the second grading run raised a
+  // duplicate-key error against the real index instead. See migration 0028.
   const { error, count } = await db.from('user_achievements').upsert(
     awards.map((a) => ({
       user_id: a.userId,
@@ -88,7 +92,7 @@ export async function grantAchievements(
       season: a.season,
       week: a.week,
     })),
-    { ignoreDuplicates: true, count: 'exact' },
+    { onConflict: 'user_id,achievement_id,season', ignoreDuplicates: true, count: 'exact' },
   );
 
   if (error) {

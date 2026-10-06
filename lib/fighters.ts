@@ -6,6 +6,13 @@
 // and the first person to work out the best build would simply have it. So an
 // archetype buys you a silhouette, a colour and a name for your big swing.
 //
+// They are football gladiators: a position on the field crossed with a figure
+// from the arena, which is what the app is called and what a duel is. They were
+// generic fantasy classes with emoji for faces, so the arena of a football
+// pick'em had a wizard standing in it. The artwork is components/FighterArt.tsx;
+// what lives here is only the data the art and the copy both read, so a
+// silhouette and the name under it can never disagree.
+//
 // Everybody has a fighter whether or not they ever open the builder, because an
 // arena with an empty plinth in it looks broken. defaultFighter() derives one
 // from the username so a first duel looks finished, and saving over it is the
@@ -13,46 +20,46 @@
 
 export const ARCHETYPES = [
   {
-    id: 'brawler',
-    name: 'Brawler',
-    blurb: 'Swings first, asks later.',
-    glyph: '🪓',
-    strike: 'Haymaker',
+    id: 'centurion',
+    name: 'Centurion',
+    position: 'Linebacker',
+    blurb: 'Reads it before it happens, then ends it.',
+    strike: 'Blindside',
   },
   {
-    id: 'gladiator',
-    name: 'Gladiator',
-    blurb: 'Shield up, sand in the eyes.',
-    glyph: '🛡️',
-    strike: 'Shield bash',
+    id: 'juggernaut',
+    name: 'Juggernaut',
+    position: 'Nose tackle',
+    blurb: 'Two blockers. Still arrives.',
+    strike: 'Trench Quake',
   },
   {
-    id: 'duelist',
-    name: 'Duelist',
-    blurb: 'All precision, no wasted motion.',
-    glyph: '🗡️',
-    strike: 'Riposte',
+    id: 'blitzer',
+    name: 'Blitzer',
+    position: 'Edge rusher',
+    blurb: 'Off the snap and already past you.',
+    strike: 'Sack Storm',
   },
   {
-    id: 'berserker',
-    name: 'Berserker',
-    blurb: 'Two axes. No plan.',
-    glyph: '⚔️',
-    strike: 'Frenzy',
+    id: 'streak',
+    name: 'Streak',
+    position: 'Wide receiver',
+    blurb: 'One step. That is all it takes.',
+    strike: 'Go Route',
   },
   {
-    id: 'oracle',
-    name: 'Oracle',
-    blurb: 'Saw this coming on Tuesday.',
-    glyph: '🔮',
-    strike: 'Foresight',
+    id: 'gunslinger',
+    name: 'Gunslinger',
+    position: 'Quarterback',
+    blurb: 'Never saw a window he did not like.',
+    strike: 'Hail Mary',
   },
   {
-    id: 'titan',
-    name: 'Titan',
-    blurb: 'Slow, enormous, inevitable.',
-    glyph: '🗿',
-    strike: 'Earthshaker',
+    id: 'bulwark',
+    name: 'Bulwark',
+    position: 'Left tackle',
+    blurb: 'Nothing gets through. Nothing.',
+    strike: 'Pocket Wall',
   },
 ] as const;
 
@@ -123,7 +130,7 @@ export function defaultFighter(userId: string, username: string): Fighter {
     userId,
     name,
     // Spread deterministically rather than giving everybody the same silhouette:
-    // two identical grey fighters facing each other reads as a loading state.
+    // two identical fighters facing each other reads as a loading state.
     archetype: ARCHETYPES[hashOf(userId) % ARCHETYPES.length]!.id,
     banner: BANNERS[hashOf(`${userId}:banner`) % BANNERS.length]!.id,
     taunt: null,

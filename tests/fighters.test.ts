@@ -33,6 +33,13 @@ describe('defaultFighter', () => {
     expect(chosen.size).toBeGreaterThan(1);
   });
 
+  it('gives every fighter a football position to go with the silhouette', () => {
+    for (const archetype of ARCHETYPES) {
+      expect(archetype.position.length).toBeGreaterThan(2);
+      expect(archetype.strike.length).toBeGreaterThan(2);
+    }
+  });
+
   it('always produces a valid archetype and banner', () => {
     for (let i = 0; i < 40; i += 1) {
       const fighter = defaultFighter(`seed-${i}`, 'Someone');
@@ -58,7 +65,7 @@ describe('defaultFighter', () => {
 });
 
 describe('validateFighter', () => {
-  const valid = { name: 'Ironjaw', archetype: 'brawler', banner: 'gold', taunt: 'Bring it.' };
+  const valid = { name: 'Ironjaw', archetype: 'centurion', banner: 'gold', taunt: 'Bring it.' };
 
   it('accepts a complete draft', () => {
     const result = validateFighter(valid);
@@ -81,6 +88,14 @@ describe('validateFighter', () => {
     // standing between a typo and an unrenderable fighter.
     expect(validateFighter({ ...valid, archetype: 'god-mode' }).ok).toBe(false);
     expect(validateFighter({ ...valid, banner: '#000000' }).ok).toBe(false);
+  });
+
+  it('refuses the retired fantasy archetypes', () => {
+    // These shipped before the fighters became football gladiators. Migration
+    // 0025 remaps the stored rows; this makes sure nothing writes one back.
+    for (const retired of ['brawler', 'gladiator', 'duelist', 'berserker', 'oracle', 'titan']) {
+      expect(validateFighter({ ...valid, archetype: retired }).ok).toBe(false);
+    }
   });
 
   it('treats a blank taunt as no taunt', () => {

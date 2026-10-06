@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { archetypeOf, bannerOf, fighterRecord } from '@/lib/fighters';
+import { archetypeOf, fighterRecord } from '@/lib/fighters';
+import FighterArt from './FighterArt';
 import type { Duel } from '@/lib/duels';
 
 /**
@@ -75,7 +76,6 @@ export default function ChallengeAlert({
 
   const fighter = duel.them.fighter;
   const archetype = archetypeOf(fighter.archetype);
-  const banner = bannerOf(fighter.banner);
 
   return createPortal(
     <div
@@ -100,14 +100,10 @@ export default function ChallengeAlert({
       <p className="display text-[11px] tracking-[0.3em] text-brand">Challenger approaching</p>
 
       <div
-        aria-hidden="true"
-        className="mt-5 flex h-28 w-28 items-center justify-center rounded-3xl text-[56px] shadow-2xl"
-        style={{
-          backgroundImage: `linear-gradient(160deg, ${banner.from} 0%, ${banner.to} 100%)`,
-          animation: 'challenge-stomp 1.1s cubic-bezier(0.22, 1, 0.36, 1) both',
-        }}
+        className="mt-4 flex items-center justify-center"
+        style={{ animation: 'challenge-stomp 1.1s cubic-bezier(0.22, 1, 0.36, 1) both' }}
       >
-        {archetype.glyph}
+        <FighterArt archetype={fighter.archetype} banner={fighter.banner} size={148} />
       </div>
 
       <h2 className="display mt-4 text-center text-[32px] leading-[0.95]">{fighter.name}</h2>

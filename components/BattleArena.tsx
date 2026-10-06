@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { archetypeOf, bannerOf, fighterRecord } from '@/lib/fighters';
+import { archetypeOf, fighterRecord } from '@/lib/fighters';
+import FighterArt from './FighterArt';
 import { MAX_HP, describeDamage, hpTone } from '@/lib/battle';
 import type { Duel, DuelSide } from '@/lib/duels';
 
@@ -187,7 +188,6 @@ function FighterPlinth({
   drawn: boolean;
 }) {
   const archetype = archetypeOf(side.fighter.archetype);
-  const banner = bannerOf(side.fighter.banner);
   const down = side.hp <= 0;
   const percent = drawn ? Math.max(0, Math.min(100, (side.hp / MAX_HP) * 100)) : 100;
 
@@ -195,16 +195,20 @@ function FighterPlinth({
     <div className={mine ? 'text-left' : 'text-right'}>
       <div className={`flex items-end gap-2 ${mine ? '' : 'flex-row-reverse'}`}>
         <span
-          aria-hidden="true"
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-[24px] transition-[filter,transform,opacity] duration-700 ${
-            down ? 'opacity-45 grayscale' : ''
+          className={`flex h-14 w-14 shrink-0 items-center justify-center transition-[filter,transform,opacity] duration-700 ${
+            down ? 'opacity-40 grayscale' : ''
           }`}
           style={{
-            backgroundImage: `linear-gradient(160deg, ${banner.from} 0%, ${banner.to} 100%)`,
-            transform: down ? 'rotate(-14deg) translateY(4px)' : mine ? 'none' : 'scaleX(-1)',
+            // The two fighters face each other, and a knocked-out one is on the
+            // floor rather than merely dimmed.
+            transform: down ? 'rotate(-16deg) translateY(5px)' : mine ? 'none' : 'scaleX(-1)',
           }}
         >
-          {archetype.glyph}
+          <FighterArt
+            archetype={side.fighter.archetype}
+            banner={side.fighter.banner}
+            size={56}
+          />
         </span>
       </div>
 

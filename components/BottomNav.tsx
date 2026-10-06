@@ -5,6 +5,57 @@ import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
+/**
+ * How far the bottom of the visible page is above the bottom of the layout.
+ *
+ * `position: fixed; bottom: 0` pins to the *layout* viewport, which on iOS
+ * Safari extends underneath the browser's bottom toolbar. With the toolbar
+ * expanded the tab bar therefore sits behind it, and as the toolbar collapses
+ * on scroll the bar slides up into view — which is what "the nav moves when I
+ * scroll" is. Rubber-banding past the end of the page does the same thing for
+ * the same reason.
+ *
+ * The visual viewport is the part actually on screen, so the difference between
+ * the two is exactly how far the bar has to be lifted to stay put.
+ *
+ * Returns 0 in an installed app, where there is no toolbar and nothing to
+ * correct, and on any browser without a visual viewport.
+ */
+function useViewportLift(): number {
+  const [lift, setLift] = useState(0);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const measure = () => {
+      const layout = document.documentElement.clientHeight;
+      const visible = viewport.offsetTop + viewport.height;
+      const gap = layout - visible;
+
+      // A toolbar is tens of pixels; a software keyboard is hundreds. Lifting
+      // the tab bar over the toolbar is the fix, lifting it over the keyboard
+      // would park it in the middle of the screen, so only the small case is
+      // corrected. Negative values mean the page is scrolled past the layout
+      // bottom, which needs no lift either.
+      setLift(gap > 0 && gap < 120 ? Math.round(gap) : 0);
+    };
+
+    measure();
+    viewport.addEventListener('resize', measure);
+    viewport.addEventListener('scroll', measure);
+    window.addEventListener('orientationchange', measure);
+
+    return () => {
+      viewport.removeEventListener('resize', measure);
+      viewport.removeEventListener('scroll', measure);
+      window.removeEventListener('orientationchange', measure);
+    };
+  }, []);
+
+  return lift;
+}
+
 // Five tabs is the practical ceiling on a phone. The extra game modes live on
 // Home rather than crowding this, so the bar stays tappable.
 const TABS = [
@@ -18,6 +69,7 @@ const TABS = [
 export default function BottomNav() {
   const pathname = usePathname();
   const [unread, setUnread] = useState(0);
+  const lift = useViewportLift();
 
   // Inside a conversation the tab bar goes away, which is what every chat app
   // does: the composer needs that strip, and a bar of tabs under a message box
@@ -66,7 +118,13 @@ export default function BottomNav() {
     <nav
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur-xl"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      style={{
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        // translate rather than `bottom`, so the browser can keep this on its
+        // own compositor layer and the bar tracks the toolbar without a relayout
+        // on every scroll event.
+        transform: lift > 0 ? `translateY(-${lift}px)` : undefined,
+      }}
     >
       <ul className="mx-auto flex max-w-md">
         {TABS.map(({ href, label, icon: Icon }) => {
