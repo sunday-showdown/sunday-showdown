@@ -7,6 +7,7 @@
 import { createAdminClient, isAuthorizedCron } from '@/lib/supabase/admin';
 import { fetchScoreboard, EspnError } from '@/lib/espn/client';
 import { syncWeek } from '@/lib/espn/sync';
+import { backfillSeason } from '@/lib/espn/backfill';
 import { syncTeams } from '@/lib/espn/teams';
 import { syncTdWeek } from '@/lib/td';
 
@@ -37,6 +38,20 @@ export async function GET(request: Request) {
 
     const report = await syncWeek(db, scoreboard);
     report.warnings.push(...teams.warnings);
+
+    // Weeks already played, fetched once. Touchdown pricing needs them: how
+    // many games a team has actually played is the denominator for a scoring
+    // rate, and points conceded is the opponent adjustment. Only genuinely
+    // missing weeks are fetched, so this is free after the first run.
+    const backfill = await backfillSeason(db, scoreboard.season, scoreboard.week).catch(
+      (backfillError) => {
+        report.warnings.push(
+          `backfill: ${backfillError instanceof Error ? backfillError.message : 'failed'}`,
+        );
+        return { weeksFetched: [], gamesWritten: 0, warnings: [] };
+      },
+    );
+    report.warnings.push(...backfill.warnings);
 
     // TD candidates and prices follow the slate they are built from. Allowed to
     // fail on its own: a roster hiccup must not cost us the scores and odds

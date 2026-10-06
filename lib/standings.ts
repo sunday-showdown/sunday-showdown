@@ -20,11 +20,18 @@ export interface StandingRow {
   movement: number | null;
   /** The best single week anyone has had, for the board that ranks on it. */
   bestWeek: number;
+  /**
+   * TD Scorer points, kept apart from totalPoints on purpose: a long shot pays
+   * several times a pick'em win, so one lucky touchdown would decide the season
+   * table. TD Scorer gets its own board instead. See rollUpTdPoints.
+   */
+  tdPoints: number;
 }
 
 interface ResultRow {
   user_id: string;
   total_points: number;
+  td_points: number;
   correct_ml: number;
   correct_spread: number;
   correct_totals: number;
@@ -45,7 +52,7 @@ export async function loadSeasonStandings(
 ): Promise<StandingRow[]> {
   const { data: results, error } = await db
     .from('weekly_results')
-    .select('user_id, total_points, correct_ml, correct_spread, correct_totals, is_winner, week')
+    .select('user_id, total_points, td_points, correct_ml, correct_spread, correct_totals, is_winner, week')
     .eq('league_id', leagueId)
     .eq('season', season)
     .returns<ResultRow[]>();
@@ -138,6 +145,7 @@ function tally(results: readonly ResultRow[]): Map<string, Tally> {
         correctSpread: 0,
         correctTotals: 0,
         bestWeek: 0,
+        tdPoints: 0,
       };
 
     entry.totalPoints += Number(row.total_points);
@@ -147,6 +155,7 @@ function tally(results: readonly ResultRow[]): Map<string, Tally> {
     entry.correctSpread += row.correct_spread;
     entry.correctTotals += row.correct_totals;
     entry.bestWeek = Math.max(entry.bestWeek, Number(row.total_points));
+    entry.tdPoints += Number(row.td_points) || 0;
 
     byUser.set(row.user_id, entry);
   }

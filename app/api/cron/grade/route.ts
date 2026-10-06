@@ -9,7 +9,7 @@ import { fetchCurrentWeek } from '@/lib/espn/client';
 import { gradeWeek } from '@/lib/grading';
 import { gradeSurvivorWeek } from '@/lib/survivor';
 import { gradeH2HWeek } from '@/lib/h2h';
-import { gradeTdWeek } from '@/lib/td';
+import { gradeTdWeek, rollUpTdPoints } from '@/lib/td';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -36,6 +36,11 @@ export async function GET(request: Request) {
     const survivor = await gradeSurvivorWeek(db, target.season, target.week);
     const h2h = await gradeH2HWeek(db, target.season, target.week);
     const td = await gradeTdWeek(db, target.season, target.week);
+
+    // After TD grading, never before: the roll-up reads the results it writes.
+    // td_points stays out of total_points on purpose — see rollUpTdPoints.
+    const tdRollUp = await rollUpTdPoints(db, target.season, target.week);
+    td.warnings.push(...tdRollUp.warnings);
     report.warnings.push(...survivor.warnings, ...h2h.warnings, ...td.warnings);
 
     const completedAt = new Date();

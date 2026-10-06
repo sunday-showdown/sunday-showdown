@@ -1,13 +1,16 @@
 // TD Scorer.
 //
-// Pick players to score a touchdown. A player's price comes from how often he
-// actually scores, shrunk toward the league average, then run through the same
-// payout rule as every other pick: a $10 stake paying the decimal odds.
+// Pick players to score a touchdown. The price comes from lib/td-model.ts —
+// scoring rate shrunk toward the position, converted to a probability properly,
+// adjusted for the opponent and for how involved the player actually is — and
+// then run through the same payout rule as every other pick: a $10 stake paying
+// the decimal odds.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { fetchTouchdownLeaders, fetchRosters, type RosterPlayer } from './espn/players';
-import { tdScoringProbability, tdBandFor } from './types';
-import { probabilityToAmerican, pointsForOdds } from './odds';
+import { fetchProduction, fetchRosters, type RosterPlayer, type PlayerProduction } from './espn/players';
+import { loadTeamForm } from './espn/backfill';
+import { priceTd, bandFor, opponentFactor } from './td-model';
+import { pointsForOdds } from './odds';
 import { fetchTouchdownScorers, normalizeName as normalizeScorer } from './espn/scoring-plays';
 
 export interface TdSyncReport {
@@ -53,12 +56,13 @@ export async function syncTdWeek(
 
   const teams = [...new Set(games.flatMap((g) => [g.home_abbr as string, g.away_abbr as string]))];
 
-  const [leaders, rosterResult] = await Promise.all([
-    fetchTouchdownLeaders(season).catch((error) => {
+  const [production, rosterResult, teamForm] = await Promise.all([
+    fetchProduction(season).catch((error) => {
       report.warnings.push(`leaders: ${error instanceof Error ? error.message : 'failed'}`);
-      return [];
+      return new Map<string, PlayerProduction>();
     }),
     fetchRosters(teams),
+    loadTeamForm(db, season),
   ]);
   report.warnings.push(...rosterResult.warnings);
 
@@ -68,8 +72,7 @@ export async function syncTdWeek(
     return report;
   }
 
-  const touchdownsBy = new Map(leaders.map((l) => [l.espnId, l.touchdowns]));
-
+  
   const { error: playerError } = await db.from('nfl_players').upsert(
     players.map((p) => ({
       espn_id: p.espnId,
@@ -97,20 +100,28 @@ export async function syncTdWeek(
   if (storedError) throw new Error(`failed to read players back: ${storedError.message}`);
   const idByEspn = new Map((stored ?? []).map((p) => [p.espn_id as string, p.id as string]));
 
-  // Games played is not in the leaders payload, so the week number stands in:
-  // by week 5 a healthy starter has played about four games. Good enough to
-  // separate a reliable scorer from a long shot, which is all the price needs.
-  const gamesPlayed = Math.max(1, week - 1);
+  // Games played comes from the team's completed games rather than from the
+  // week number. The old version credited everybody with (week - 1), so a
+  // player who had missed a month carried the same denominator as one who had
+  // started every week — and an injured star kept an elite price while sitting
+  // on the bench. It still cannot see an individual absence; the usage signal
+  // in lib/td-model.ts is what stands in for that.
+  const gamesFor = (teamAbbr: string) =>
+    teamForm.form.get(teamAbbr)?.gamesPlayed ?? Math.max(0, week - 1);
 
   const { error: statsError } = await db.from('player_season_stats').upsert(
     players
       .filter((p) => idByEspn.has(p.espnId))
-      .map((p) => ({
-        player_id: idByEspn.get(p.espnId)!,
-        season,
-        games_played: gamesPlayed,
-        total_touchdowns: touchdownsBy.get(p.espnId) ?? 0,
-      })),
+      .map((p) => {
+        const stats = production.get(p.espnId);
+        return {
+          player_id: idByEspn.get(p.espnId)!,
+          season,
+          games_played: gamesFor(p.teamAbbr),
+          total_touchdowns: stats?.scoringTouchdowns ?? 0,
+          rushing_attempts: stats?.touches ?? 0,
+        };
+      }),
     { onConflict: 'player_id,season' },
   );
 
@@ -143,21 +154,42 @@ export async function syncTdWeek(
   if (candidateError) report.warnings.push(`candidates: ${candidateError.message}`);
   else report.candidatesWritten = candidates.length;
 
-  report.valuesWritten = await priceWeek(db, season, week, players, touchdownsBy, idByEspn, gamesPlayed, report);
+  // Who each team plays decides the opponent adjustment.
+  const opponentOf = new Map<string, string>();
+  for (const game of games) {
+    opponentOf.set(game.home_abbr as string, game.away_abbr as string);
+    opponentOf.set(game.away_abbr as string, game.home_abbr as string);
+  }
+
+  report.valuesWritten = await priceWeek(db, season, week, players, {
+    production,
+    gamesFor,
+    opponentOf,
+    teamForm,
+    report,
+    idByEspn,
+  });
   return report;
 }
 
 /** Write a price per league for every candidate, leaving frozen rows alone. */
+interface PricingContext {
+  production: ReadonlyMap<string, PlayerProduction>;
+  gamesFor: (teamAbbr: string) => number;
+  opponentOf: ReadonlyMap<string, string>;
+  teamForm: Awaited<ReturnType<typeof loadTeamForm>>;
+  report: TdSyncReport;
+  idByEspn: ReadonlyMap<string, string>;
+}
+
 async function priceWeek(
   db: SupabaseClient,
   season: number,
   week: number,
   players: readonly RosterPlayer[],
-  touchdownsBy: ReadonlyMap<string, number>,
-  idByEspn: ReadonlyMap<string, string>,
-  gamesPlayed: number,
-  report: TdSyncReport,
+  context: PricingContext,
 ): Promise<number> {
+  const { production, gamesFor, opponentOf, teamForm, report, idByEspn } = context;
   const { data: leagues, error } = await db.from('leagues').select('id').eq('season', season);
   if (error) {
     report.warnings.push(`leagues: ${error.message}`);
@@ -171,18 +203,32 @@ async function priceWeek(
       const playerId = idByEspn.get(player.espnId);
       if (!playerId) continue;
 
-      const touchdowns = touchdownsBy.get(player.espnId) ?? 0;
-      const probability = tdScoringProbability(touchdowns, gamesPlayed);
-      const american = probabilityToAmerican(probability) ?? 400;
+      const stats = production.get(player.espnId);
+      const touchdowns = stats?.scoringTouchdowns ?? 0;
+      const gamesPlayed = gamesFor(player.teamAbbr);
+
+      const opponent = opponentOf.get(player.teamAbbr);
+      const defence = opponent ? teamForm.form.get(opponent) : undefined;
+
+      const price = priceTd({
+        position: player.position,
+        touchdowns,
+        gamesPlayed,
+        touches: stats?.touches ?? null,
+        opponentFactor: opponentFactor(
+          defence?.pointsAllowedPerGame ?? null,
+          teamForm.leagueAveragePointsAllowed,
+        ),
+      });
 
       rows.push({
         league_id: league.id,
         player_id: playerId,
         season,
         week,
-        american_odds: american,
-        td_point_value: pointsForOdds(american),
-        tier: tdBandFor(touchdowns, gamesPlayed),
+        american_odds: price.americanOdds,
+        td_point_value: pointsForOdds(price.americanOdds),
+        tier: bandFor(price.probability),
         source: 'auto',
         computed_total_tds: touchdowns,
         computed_games_played: gamesPlayed,
@@ -321,4 +367,68 @@ export async function gradeTdWeek(
   }
 
   return report;
+}
+
+/**
+ * Roll graded TD picks up into weekly_results.td_points.
+ *
+ * Deliberately kept out of total_points. A long shot pays what the odds pay,
+ * which can be five times a pick'em win, so letting the two share one column
+ * meant one lucky touchdown outweighed a whole card. TD Scorer has its own
+ * board instead, and the season table stays a pick'em table.
+ *
+ * Recomputed from td_picks rather than incremented, for the same reason the
+ * rest of grading is: a re-run after a correction has to produce the same
+ * number, not a bigger one.
+ */
+export async function rollUpTdPoints(
+  db: SupabaseClient,
+  season: number,
+  week: number,
+): Promise<{ rowsWritten: number; warnings: string[] }> {
+  const warnings: string[] = [];
+
+  const { data: picks, error } = await db
+    .from('td_picks')
+    .select('league_id, user_id, points, result')
+    .eq('season', season)
+    .eq('week', week)
+    .neq('result', 'pending');
+
+  if (error) {
+    warnings.push(`td roll-up: ${error.message}`);
+    return { rowsWritten: 0, warnings };
+  }
+  if (!picks || picks.length === 0) return { rowsWritten: 0, warnings };
+
+  const totals = new Map<string, { league: string; user: string; points: number }>();
+  for (const pick of picks) {
+    const league = pick.league_id as string;
+    const user = pick.user_id as string;
+    const key = `${league}:${user}`;
+    const entry = totals.get(key) ?? { league, user, points: 0 };
+    entry.points += Number(pick.points) || 0;
+    totals.set(key, entry);
+  }
+
+  const rows = [...totals.values()].map((entry) => ({
+    league_id: entry.league,
+    user_id: entry.user,
+    season,
+    week,
+    td_points: Math.round(entry.points * 100) / 100,
+  }));
+
+  // Upsert rather than update: somebody who played TD Scorer and skipped the
+  // pick'em card has no weekly_results row for gradeWeek to have created.
+  const { error: writeError } = await db
+    .from('weekly_results')
+    .upsert(rows, { onConflict: 'league_id,user_id,season,week' });
+
+  if (writeError) {
+    warnings.push(`td roll-up write: ${writeError.message}`);
+    return { rowsWritten: 0, warnings };
+  }
+
+  return { rowsWritten: rows.length, warnings };
 }

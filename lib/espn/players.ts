@@ -54,21 +54,77 @@ export function athleteIdFromRef(ref: unknown): string | null {
   return match ? match[1]! : null;
 }
 
-/** Parse the season leaders payload into touchdown counts per athlete. */
-export function parseTouchdownLeaders(payload: unknown): TouchdownCount[] {
+/** One leader category as a map of athlete id to value. */
+export function parseLeaderCategory(payload: unknown, category: string): Map<string, number> {
   const root = (payload ?? {}) as Record<string, any>;
   const categories = (root.categories ?? []) as Record<string, any>[];
-  const totals = categories.find((c) => c.name === 'totalTouchdowns');
-  if (!totals) return [];
+  const found = categories.find((c) => c.name === category);
 
-  const counts: TouchdownCount[] = [];
-  for (const leader of (totals.leaders ?? []) as Record<string, any>[]) {
+  const values = new Map<string, number>();
+  if (!found) return values;
+
+  for (const leader of (found.leaders ?? []) as Record<string, any>[]) {
     const espnId = athleteIdFromRef(leader?.athlete?.$ref);
-    const touchdowns = Number(leader?.value);
-    if (!espnId || !Number.isFinite(touchdowns)) continue;
-    counts.push({ espnId, touchdowns });
+    const value = Number(leader?.value);
+    if (!espnId || !Number.isFinite(value)) continue;
+    values.set(espnId, value);
   }
-  return counts;
+  return values;
+}
+
+/** Parse the season leaders payload into touchdown counts per athlete. */
+export function parseTouchdownLeaders(payload: unknown): TouchdownCount[] {
+  const totals = parseLeaderCategory(payload, 'totalTouchdowns');
+  return [...totals.entries()].map(([espnId, touchdowns]) => ({ espnId, touchdowns }));
+}
+
+/**
+ * Yards per carry, used to turn rushing yards into an estimate of carries.
+ *
+ * ESPN's leaders payload has no attempts category, and fetching per-athlete
+ * statistics would be one request per player. Carries only feed the usage
+ * signal in lib/td-model.ts, which is a multiplier clamped to a narrow band, so
+ * an estimate within a yard of the real figure changes nothing material.
+ */
+const YARDS_PER_CARRY = 4.3;
+
+export interface PlayerProduction {
+  /** Rushing plus receiving. Never passing — a thrown touchdown is not a score
+   *  by the passer, and every sportsbook prices it separately. */
+  scoringTouchdowns: number;
+  /** Carries plus receptions, for the usage signal. */
+  touches: number;
+}
+
+/**
+ * Season production per athlete, from the one leaders payload.
+ *
+ * Deliberately built from the rushing and receiving categories rather than
+ * totalTouchdowns: the split is what lets a quarterback be priced on his
+ * rushing scores alone.
+ */
+export function parseProduction(payload: unknown): Map<string, PlayerProduction> {
+  const rushingTds = parseLeaderCategory(payload, 'rushingTouchdowns');
+  const receivingTds = parseLeaderCategory(payload, 'receivingTouchdowns');
+  const receptions = parseLeaderCategory(payload, 'receptions');
+  const rushingYards = parseLeaderCategory(payload, 'rushingYards');
+
+  const everyone = new Set([
+    ...rushingTds.keys(),
+    ...receivingTds.keys(),
+    ...receptions.keys(),
+    ...rushingYards.keys(),
+  ]);
+
+  const production = new Map<string, PlayerProduction>();
+  for (const espnId of everyone) {
+    const carries = Math.round((rushingYards.get(espnId) ?? 0) / YARDS_PER_CARRY);
+    production.set(espnId, {
+      scoringTouchdowns: (rushingTds.get(espnId) ?? 0) + (receivingTds.get(espnId) ?? 0),
+      touches: Math.max(0, carries) + (receptions.get(espnId) ?? 0),
+    });
+  }
+  return production;
 }
 
 /** Parse a team roster into the players worth offering. */
@@ -103,6 +159,12 @@ export function parseRoster(payload: unknown, teamAbbr: string): RosterPlayer[] 
 export async function fetchTouchdownLeaders(season: number): Promise<TouchdownCount[]> {
   const payload = await getJson(`${LEADERS}/${season}/types/2/leaders?limit=300`);
   return parseTouchdownLeaders(payload);
+}
+
+/** Scoring touchdowns and touches per athlete, in one request. */
+export async function fetchProduction(season: number): Promise<Map<string, PlayerProduction>> {
+  const payload = await getJson(`${LEADERS}/${season}/types/2/leaders?limit=400`);
+  return parseProduction(payload);
 }
 
 export async function fetchRoster(teamAbbr: string): Promise<RosterPlayer[]> {

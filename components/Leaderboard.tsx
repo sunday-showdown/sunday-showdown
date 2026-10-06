@@ -11,13 +11,14 @@ export interface RankedPlayer extends StandingRow {
   longestStreak: number;
 }
 
-type Board = 'points' | 'weeks' | 'best' | 'streak';
+type Board = 'points' | 'weeks' | 'best' | 'streak' | 'td';
 
 const BOARDS: { id: Board; label: string; blurb: string }[] = [
   { id: 'points', label: 'Points', blurb: 'Season total' },
   { id: 'weeks', label: 'Weeks won', blurb: 'Outright wins' },
   { id: 'best', label: 'Best week', blurb: 'Highest single card' },
   { id: 'streak', label: 'Streak', blurb: 'Correct picks in a row' },
+  { id: 'td', label: 'TD Scorer', blurb: 'Its own board — TD points never touch the season table' },
 ];
 
 /**
@@ -48,6 +49,8 @@ export default function Leaderboard({
         return Math.round(row.bestWeek);
       case 'streak':
         return row.currentStreak;
+      case 'td':
+        return Math.round(row.tdPoints);
       default:
         return Math.round(row.totalPoints);
     }
@@ -164,6 +167,8 @@ export default function Leaderboard({
                       <div className="mt-0.5 flex items-center gap-1.5 text-[10px] tabnum text-muted">
                         {board === 'streak' ? (
                           <span>Best run {row.longestStreak}</span>
+                        ) : board === 'td' ? (
+                          <span>{Math.round(row.totalPoints)} pick&apos;em pts</span>
                         ) : (
                           <>
                             <span>{row.correctMl} ML</span>
@@ -173,7 +178,7 @@ export default function Leaderboard({
                             <span>{row.correctTotals} O/U</span>
                           </>
                         )}
-                        {board !== 'points' && (
+                        {board !== 'points' && board !== 'td' && (
                           <>
                             <span>·</span>
                             <span>{Math.round(row.totalPoints)} pts</span>

@@ -241,9 +241,30 @@ three markets. Two behaviours worth knowing:
 - **Values are strings.** `"-9.5"`, `"+400"`, `"o47.5"`. `lib/espn/parse.ts`
   handles the coercion, including `PK` and `EVEN`.
 
-ESPN publishes no anytime-TD player props, which is why TD Scorer point values
-are derived from season production (`derive_td_point_value` in migration 0005)
-with a commissioner override.
+ESPN publishes no anytime-TD player props, so TD Scorer prices its own board.
+The model is `lib/td-model.ts`:
+
+- a player's scoring rate, shrunk toward what his position normally does, so
+  three games of noise do not set a price for a month;
+- converted to a probability with the Poisson relation, `1 - e^(-λ)` — the step
+  the first version skipped, which is how a rate above 1 became a 90% chance and
+  the league's best back was priced at -900;
+- adjusted for the opponent, using points conceded per game against the league
+  average, clamped so one blowout cannot reclassify a defence;
+- adjusted for usage — carries plus receptions — which is the only thing
+  standing in for a depth chart, and so is allowed to cut a price harder than it
+  can raise one;
+- clamped to a range a book would actually print, 3% to 60%.
+
+Quarterbacks are priced on rushing touchdowns alone, because a thrown
+touchdown is not a score by the passer. Games played comes from the team's
+completed games rather than the week number, which is why the sync backfills
+the season once (`lib/espn/backfill.ts`).
+
+**TD points never reach the season table.** A long shot pays several times a
+pick'em win, so sharing one column meant a single lucky touchdown outweighed a
+whole card. `weekly_results.td_points` is rolled up separately and surfaced as
+its own board on Ranks.
 
 **No sportsbook feed exists for a person's own bets.** No US book publishes an
 API that would let an app read somebody's wagers, and none offers a public deep

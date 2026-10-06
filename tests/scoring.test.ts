@@ -10,7 +10,6 @@ import {
   PUSH_POINTS,
   DEFAULT_WIN_POINTS,
 } from '../lib/odds';
-import { tdPointsFor, tdAmericanOdds, tdBandFor, tdScoringProbability } from '../lib/types';
 
 const final = (homeScore: number, awayScore: number) => ({
   status: 'final',
@@ -250,43 +249,7 @@ describe('gradePick — ungradeable states', () => {
   });
 });
 
-describe('TD Scorer pricing', () => {
-  it('prices a frequent scorer short and a rare one long', () => {
-    expect(tdPointsFor(6, 8)).toBeLessThan(tdPointsFor(1, 8));
-  });
 
-  it('uses the same payout rule as every other pick', () => {
-    const odds = tdAmericanOdds(3, 8);
-    expect(tdPointsFor(3, 8)).toBe(pointsForOdds(odds));
-  });
-
-  it('shrinks a small sample toward the league average', () => {
-    // One touchdown in one game is not a 100% scorer; without shrinkage he
-    // would be priced as the safest pick on the board.
-    const oneGame = tdScoringProbability(1, 1);
-    expect(oneGame).toBeLessThan(0.5);
-    expect(tdPointsFor(1, 1)).toBeGreaterThan(tdPointsFor(8, 10));
-  });
-
-  it('keeps every price inside the range odds can express', () => {
-    for (const [tds, games] of [[0, 0], [0, 17], [17, 17], [40, 17], [1, 1]]) {
-      const p = tdScoringProbability(tds!, games!);
-      expect(p).toBeGreaterThan(0);
-      expect(p).toBeLessThan(1);
-      expect(Number.isFinite(tdPointsFor(tds!, games!))).toBe(true);
-    }
-  });
-
-  it('bands players for display without changing the payout', () => {
-    expect(tdBandFor(8, 10)).toBe('lock');
-    expect(tdBandFor(1, 10)).toBe('longshot');
-  });
-
-  it('never lets one TD pick outweigh a whole card', () => {
-    // A 15-game card at the standard price is ~285 points.
-    expect(tdPointsFor(0, 17)).toBeLessThan(15 * DEFAULT_WIN_POINTS);
-  });
-});
 
 describe('summarizeWeek', () => {
   it('totals points and counts each market separately', () => {
