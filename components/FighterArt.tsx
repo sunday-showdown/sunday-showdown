@@ -6,20 +6,24 @@ import { archetypeOf, bannerOf } from '@/lib/fighters';
  * A fighter.
  *
  * Painted character art, prepared by scripts/prepare-fighters.mjs and served
- * from public/fighters. This used to be hand-authored SVG — six figures drawn
- * as paths — and it was not good enough: flat vector cannot carry muscle,
- * material or light, and next to the reference art it looked like a diagram of
- * a football player rather than one.
+ * from public/fighters. This used to be hand-authored SVG and it was not good
+ * enough: flat vector cannot carry muscle, material or light, and next to real
+ * art it read as a diagram of a football player rather than one.
  *
- * What SVG was buying was recolouring, since the paths took the banner colour.
- * That is gone for now: these are fixed-colour characters, so the banner moves
- * to the ground glow and the chrome around the figure instead of the kit. See
- * the note in the duel screen about what recolouring the art itself would take.
+ * The team colour is a different file rather than a filter. Each character is
+ * repainted into each of the six colours ahead of time, so picking a colour
+ * costs an image request and nothing else: it renders on the server, costs the
+ * client no work, and cannot flash the wrong colour on first paint the way a
+ * canvas recolour would. The repaint preserves lightness, so every fold and
+ * scuff in the original survives and only the hue under them changes.
  *
- * Two framings of one file. `frame="bust"` crops to the helmet and shoulders
- * using a per-character anchor from lib/fighters.ts, because a whole figure at
- * 44 pixels in a list row is a smudge, and each of them stands differently
- * enough that one fixed crop would behead at least two.
+ * Two sizes of each, because the picker shows six at once and the full files
+ * are about 190KB: anything small enough to be a thumbnail gets the 180px copy.
+ *
+ * Two framings too. `frame="bust"` crops to the helmet and shoulders using a
+ * per-character anchor from lib/fighters.ts, because a whole figure at 44
+ * pixels in a list row is a smudge, and these six stand differently enough that
+ * one fixed crop would behead at least two of them.
  */
 
 export type FighterState = 'idle' | 'ready' | 'hit' | 'down';
@@ -55,7 +59,12 @@ export default function FighterArt({
   className?: string;
 }) {
   const meta = archetypeOf(archetype);
-  const { from } = bannerOf(banner);
+  const colour = bannerOf(banner);
+  const { from } = colour;
+
+  // Below this the thumbnail is indistinguishable and a tenth of the weight.
+  const thumb = size <= 100;
+  const src = `/fighters/${meta.id}-${colour.id}${thumb ? '@sm' : ''}.png`;
 
   // The bust crop, worked out in pixels rather than percentages.
   //
@@ -94,7 +103,7 @@ export default function FighterArt({
           fixed-size, pre-sized assets; next/image would add a loader and a
           layout wrapper for no benefit at this size. */}
       <img
-        src={`/fighters/${meta.id}.png`}
+        src={src}
         alt={`${meta.name}, ${meta.position}`}
         draggable={false}
         style={{

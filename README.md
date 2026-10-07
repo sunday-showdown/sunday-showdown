@@ -16,7 +16,7 @@ Built:
 - **Pick'em** — the full loop: schedule, odds, picking, locking, line freezing, grading, standings, career stats
 - **Home** — a hub: last week's recap, this week's card with the league it belongs to, and every mode, pool and buy-in you are actually in
 - **Week recap** — how the week went, your best call and the one that hurt, with duels and other modes beside it
-- **Duels** — head to head against any friend or league mate, for a week or the whole season, drawn as a fight: both start at 100 HP and the better card lands the difference. Six players to pick from — Captain, Speedster, Playmaker, Bruiser, Enforcer, Juggernaut — all cosmetic
+- **Duels** — head to head against any friend or league mate, for a week or the whole season, drawn as a fight: both start at 100 HP and the better card lands the difference. Six players to pick from — Captain, Speedster, Playmaker, Bruiser, Enforcer, Juggernaut — in six team colours, all cosmetic
 - **Ranks** — global by default, filterable to each of your leagues
 - **Onboarding** — four cards on first sign-in, skippable, replayable from your profile
 - **Other modes** — Survivor, TD Scorer, playground, each with its own pot
@@ -311,6 +311,31 @@ build.
 
 Grading is idempotent: career stats are recomputed from `picks`, never
 incremented, so a re-run after a score correction produces the same numbers.
+
+## Character art
+
+The six fighters are painted images, not drawings made in code. `public/fighters`
+holds them, and `scripts/prepare-fighters.mjs` builds that folder from a
+directory of six transparent PNGs named after the archetypes:
+
+```bash
+node scripts/prepare-fighters.mjs ~/art/fighters
+```
+
+It trims transparent margins, downscales to 400px (and 180px for thumbnails),
+and writes a recoloured copy of each character in each of the six team colours —
+84 files, about 10MB. The recolour swaps hue while preserving lightness, so the
+folds and scuffs of the original survive and only the colour under them changes.
+
+The colour of each character's kit is found by a rule per character in that
+script. Five are a hue window; the captain's kit is white, which has no hue to
+rotate, so his is selected by being bright and unsaturated and is tinted
+instead. The red and orange players need a saturation floor as well, because
+their kit sits on the same hues as skin — the floor is set high enough to leave
+a little kit untouched rather than low enough to repaint an arm.
+
+Adding a seventh colour means regenerating twelve files, so `BANNERS` in
+`lib/fighters.ts` and `BANNER_HUE` in the script have to agree.
 
 ## Demo data
 

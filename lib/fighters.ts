@@ -112,11 +112,13 @@ export function archetypeOf(id: string | null | undefined): Archetype {
 }
 
 /**
- * Banner colours.
+ * Team colours.
  *
- * A fixed palette rather than a colour picker: every one of these reads on the
- * near-black arena floor, and a free picker would let somebody choose the
- * background colour and vanish.
+ * Six, and not one more. These are not decoration any more: each one has a
+ * repainted copy of every character behind it (scripts/prepare-fighters.mjs),
+ * so adding a seventh means generating twelve more files rather than adding a
+ * line here. A free colour picker is out for the same reason, quite apart from
+ * letting somebody choose the background colour and vanish.
  */
 export const BANNERS = [
   { id: 'crimson', name: 'Crimson', from: '#f01219', to: '#7d0a10' },
@@ -125,7 +127,6 @@ export const BANNERS = [
   { id: 'cobalt', name: 'Cobalt', from: '#3b82f6', to: '#17356f' },
   { id: 'violet', name: 'Violet', from: '#a855f7', to: '#4c1d75' },
   { id: 'ember', name: 'Ember', from: '#ff9530', to: '#8a3f00' },
-  { id: 'bone', name: 'Bone', from: '#e7e2d9', to: '#7d766a' },
 ] as const;
 
 export type BannerId = (typeof BANNERS)[number]['id'];

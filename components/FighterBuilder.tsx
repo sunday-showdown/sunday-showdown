@@ -163,7 +163,10 @@ export default function FighterBuilder({ fighter }: { fighter: Fighter }) {
           </div>
 
           <div>
-            <span className="eyebrow pb-2">Banner</span>
+            <span className="eyebrow pb-2">Team colour</span>
+            <p className="pb-2 text-[11px] text-muted">
+              Repaints the kit. Skin, metal and the black underlayer stay put.
+            </p>
             <div className="flex flex-wrap gap-2 pt-1">
               {BANNERS.map((option) => (
                 <button

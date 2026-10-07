@@ -31,6 +31,13 @@ import zlib from 'node:zlib';
 
 const DELIVERY_HEIGHT = 400;
 
+// A second, small set for list rows and picker tiles.
+//
+// The full-size files are about 190KB each, and the fighter picker shows six at
+// once: over a megabyte to draw six thumbnails on a phone. These are a tenth of
+// that and indistinguishable at the sizes they are used.
+const THUMB_HEIGHT = 180;
+
 // Built up here, not beside crc32: the body of this script runs at module top
 // level, so a `let` further down is still in its temporal dead zone by the time
 // the first PNG is written.
@@ -41,6 +48,37 @@ for (let n = 0; n < 256; n += 1) {
   CRC_TABLE[n] = c;
 }
 const NAMES = ['captain', 'speedster', 'playmaker', 'bruiser', 'enforcer', 'juggernaut'];
+
+// Where each character's team colour lives, so it can be swapped without
+// touching skin, metal or the black underkit.
+//
+// Five of the six are a hue window. The sixth is not: the captain's kit is
+// white, which has no hue to shift, so his is selected by being bright and
+// unsaturated and is tinted rather than rotated.
+//
+// The windows are deliberately tight. Skin on these figures sits at hue 0-35
+// with saturation up to about 0.6, which is exactly where the red and orange
+// kit also sits — so those two lean on a saturation floor to tell a jersey from
+// a shoulder, set high enough to leave a little kit behind rather than low
+// enough to tint an arm.
+const ACCENT = {
+  captain: { kind: 'light', minL: 0.56, maxS: 0.2 },
+  speedster: { kind: 'hue', from: 340, to: 368, minS: 0.58 },
+  playmaker: { kind: 'hue', from: 190, to: 250, minS: 0.12 },
+  bruiser: { kind: 'hue', from: 55, to: 170, minS: 0.12 },
+  enforcer: { kind: 'hue', from: 240, to: 312, minS: 0.12 },
+  juggernaut: { kind: 'hue', from: 16, to: 48, minS: 0.62 },
+};
+
+/** Banner id to the hue it paints kit, matching BANNERS in lib/fighters.ts. */
+const BANNER_HUE = {
+  crimson: 2,
+  gold: 44,
+  jade: 142,
+  cobalt: 214,
+  violet: 272,
+  ember: 26,
+};
 
 const source = process.argv[2];
 if (!source) {
@@ -67,6 +105,27 @@ for (const name of NAMES) {
   writeFileSync(join(outDir, `${name}.png`), png);
   console.log(
     `  ${name}: ${width}x${height} -> ${out.w}x${out.h}  ${(png.length / 1024).toFixed(0)}KB`,
+  );
+
+  const small = resample(out.pixels, out.w, { x: 0, y: 0, w: out.w, h: out.h },
+    Math.max(1, Math.round((out.w * THUMB_HEIGHT) / out.h)), THUMB_HEIGHT);
+  writeFileSync(join(outDir, `${name}@sm.png`), encode(small.w, small.h, small.pixels));
+
+  // One file per banner colour, at both sizes. Done here rather than in the
+  // browser because a pre-made image is just an <img>: it renders on the
+  // server, costs the client nothing, and cannot flash a wrong colour on first
+  // paint the way a canvas recolour would.
+  let bytes = 0;
+  for (const [banner, hue] of Object.entries(BANNER_HUE)) {
+    const big = encode(out.w, out.h, recolour(out.pixels, ACCENT[name], hue));
+    writeFileSync(join(outDir, `${name}-${banner}.png`), big);
+
+    const sm = encode(small.w, small.h, recolour(small.pixels, ACCENT[name], hue));
+    writeFileSync(join(outDir, `${name}-${banner}@sm.png`), sm);
+    bytes += big.length + sm.length;
+  }
+  console.log(
+    `    + ${Object.keys(BANNER_HUE).length} colours x2 sizes  ${(bytes / 1024).toFixed(0)}KB`,
   );
 }
 
@@ -241,4 +300,84 @@ function resample(pixels, srcWidth, box, w, h) {
   }
 
   return { w, h, pixels: out };
+}
+
+// --- Colour ------------------------------------------------------------------
+
+/**
+ * Repaint one character's kit in another colour.
+ *
+ * Lightness is preserved throughout, which is what keeps the result looking
+ * painted: every fold, highlight and scuff in the original survives, and only
+ * the hue underneath them changes.
+ */
+function recolour(pixels, rule, hue) {
+  const out = Buffer.from(pixels);
+
+  for (let p = 0; p < out.length; p += 4) {
+    if (out[p + 3] === 0) continue;
+
+    const [h, l, s] = rgbToHsl(out[p], out[p + 1], out[p + 2]);
+    let next = null;
+
+    if (rule.kind === 'light') {
+      // White kit: no hue to rotate, so give it one. Tinted in proportion to
+      // how bright it is, so a shadowed fold does not come back fluorescent.
+      if (l >= rule.minL && s <= rule.maxS) {
+        next = hslToRgb(hue, l, 0.1 + 0.34 * ((l - rule.minL) / (1 - rule.minL)));
+      }
+    } else {
+      const deg = h * 360;
+      const inside = rule.to > 360
+        ? deg >= rule.from || deg <= rule.to - 360
+        : deg >= rule.from && deg <= rule.to;
+      if (inside && s >= rule.minS) next = hslToRgb(hue, l, s);
+    }
+
+    if (next) {
+      out[p] = next[0];
+      out[p + 1] = next[1];
+      out[p + 2] = next[2];
+    }
+  }
+
+  return out;
+}
+
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, l, 0];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return [h, l, s];
+}
+
+function hslToRgb(hueDeg, l, s) {
+  const h = (((hueDeg % 360) + 360) % 360) / 360;
+  if (s === 0) {
+    const v = Math.round(l * 255);
+    return [v, v, v];
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const channel = (t) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return [
+    Math.round(channel(h + 1 / 3) * 255),
+    Math.round(channel(h) * 255),
+    Math.round(channel(h - 1 / 3) * 255),
+  ];
 }
