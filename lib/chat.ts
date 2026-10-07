@@ -33,6 +33,8 @@ export interface ChannelSummary {
   isDefault: boolean;
   lastMessageAt: string | null;
   unread: number;
+  /** Slips and cards only, reactions but no replies. See migration 0034. */
+  playsOnly: boolean;
   /** For a DM, the other person. Null for league and mode channels. */
   partner: { userId: string; username: string; avatarUrl: string | null } | null;
 }
@@ -151,6 +153,7 @@ interface ChannelRow {
   is_default: boolean;
   last_message_at: string | null;
   position: number;
+  plays_only: boolean;
 }
 
 /**
@@ -171,7 +174,7 @@ export async function loadChannels(
   const [{ data: rows, error }, { data: unreadRows }, { data: dmRows }] = await Promise.all([
     db
       .from('channels')
-      .select('id, kind, name, topic, emoji, mode, league_id, is_default, last_message_at, position')
+      .select('id, kind, name, topic, emoji, mode, league_id, is_default, last_message_at, position, plays_only')
       .order('position', { ascending: true }),
     db.rpc('channel_unread_counts'),
     db.from('channel_members').select('channel_id, user_id'),
@@ -211,6 +214,7 @@ export async function loadChannels(
       return {
         id: row.id,
         kind: row.kind,
+        playsOnly: Boolean(row.plays_only),
         name: row.name,
         topic: row.topic,
         emoji: row.emoji,
@@ -244,7 +248,7 @@ export async function loadChannel(
 ): Promise<ChannelSummary | null> {
   const { data: row } = await db
     .from('channels')
-    .select('id, kind, name, topic, emoji, mode, league_id, is_default, last_message_at, position')
+    .select('id, kind, name, topic, emoji, mode, league_id, is_default, last_message_at, position, plays_only')
     .eq('id', channelId)
     .maybeSingle();
 
@@ -279,6 +283,7 @@ export async function loadChannel(
   return {
     id: channel.id,
     kind: channel.kind,
+    playsOnly: Boolean(channel.plays_only),
     name: channel.name,
     topic: channel.topic,
     emoji: channel.emoji,

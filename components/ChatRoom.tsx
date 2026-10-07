@@ -16,6 +16,9 @@ interface Props {
   myUserId: string;
   placeholder: string;
   initialMessages: ChatMessage[];
+  /** A plays room: slips and cards only, reactions but no replies. */
+  playsOnly?: boolean;
+  cardChallengeId?: string | null;
 }
 
 /**
@@ -40,6 +43,8 @@ export default function ChatRoom({
   myUserId,
   placeholder,
   initialMessages,
+  playsOnly = false,
+  cardChallengeId = null,
 }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [replyTo, setReplyTo] = useState<ChatMessage['replyTo']>(null);
@@ -224,9 +229,13 @@ export default function ChatRoom({
       <div className="pb-28">
         {messages.length === 0 ? (
           <div className="px-8 py-16 text-center">
-            <div className="display text-[20px] leading-tight">Nothing here yet</div>
+            <div className="display text-[20px] leading-tight">
+              {playsOnly ? 'No plays yet' : 'Nothing here yet'}
+            </div>
             <p className="mt-1.5 text-[13px] leading-relaxed text-muted">
-              Say something. Pictures, GIFs and bet slips all work.
+              {playsOnly
+                ? 'Post what you are on. Everyone else can react to it, and nothing else.'
+                : 'Say something. Pictures, GIFs and bet slips all work.'}
             </p>
           </div>
         ) : (
@@ -275,7 +284,12 @@ export default function ChatRoom({
                     isMine={message.author?.userId === myUserId}
                     grouped={grouped}
                     onReact={(emoji) => void react(message.id, emoji)}
-                    onReply={() =>
+                    // No reply affordance in a plays room; the database refuses
+                    // one anyway, so offering it would only be a dead end.
+                    onReply={
+                      playsOnly
+                        ? undefined
+                        : () =>
                       setReplyTo({
                         id: message.id,
                         author: message.author?.username ?? null,
@@ -301,6 +315,8 @@ export default function ChatRoom({
       <Composer
         channelId={channelId}
         leagueId={leagueId}
+        playsOnly={playsOnly}
+        cardChallengeId={cardChallengeId}
         placeholder={placeholder}
         replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)}

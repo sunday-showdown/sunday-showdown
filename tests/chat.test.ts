@@ -73,6 +73,7 @@ describe('channelLabel', () => {
     mode: null,
     leagueId: 'l1',
     isDefault: true,
+  playsOnly: false,
     lastMessageAt: null,
     unread: 0,
     partner: null,

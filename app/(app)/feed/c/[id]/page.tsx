@@ -34,6 +34,29 @@ export default async function ChannelPage({ params }: { params: Promise<{ id: st
   const isDm = channel.kind === 'dm';
   const label = channelLabel(channel);
 
+  // A plays room can post this week's card, so it needs to know which contest
+  // that is. Only looked up for that room: every other channel posts a card
+  // from the Picks screen, where the card already is.
+  let cardChallengeId: string | null = null;
+  if (channel.playsOnly && channel.leagueId) {
+    const { data: league } = await supabase
+      .from('leagues')
+      .select('season, current_week')
+      .eq('id', channel.leagueId)
+      .maybeSingle();
+
+    if (league) {
+      const { data: contest } = await supabase
+        .from('pickem_challenges')
+        .select('id')
+        .eq('league_id', channel.leagueId)
+        .eq('season', league.season)
+        .eq('week', league.current_week)
+        .maybeSingle();
+      cardChallengeId = (contest?.id as string) ?? null;
+    }
+  }
+
   return (
     <main>
       <AppBar
@@ -64,6 +87,8 @@ export default async function ChannelPage({ params }: { params: Promise<{ id: st
         myUserId={user.id}
         placeholder={`Message ${label}`}
         initialMessages={messages}
+        playsOnly={channel.playsOnly}
+        cardChallengeId={cardChallengeId}
       />
     </main>
   );

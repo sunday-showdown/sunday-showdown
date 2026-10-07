@@ -33,7 +33,8 @@ export default function MessageBubble({
   isMine: boolean;
   grouped: boolean;
   onReact: (emoji: string) => void;
-  onReply: () => void;
+  /** Absent in a plays room, where replies are refused by the database. */
+  onReply?: () => void;
   onDelete: () => void;
   onChanged: () => void;
 }) {
@@ -181,18 +182,22 @@ export default function MessageBubble({
                 </button>
               ))}
 
-              <span className="mx-0.5 h-5 w-px bg-line" />
+              {onReply && (
+                <>
+                  <span className="mx-0.5 h-5 w-px bg-line" />
 
-              <button
-                type="button"
-                onClick={() => {
-                  onReply();
-                  setShowActions(false);
-                }}
-                className="h-8 rounded-lg px-2.5 text-[11px] font-bold text-muted active:bg-line/60"
-              >
-                Reply
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onReply();
+                      setShowActions(false);
+                    }}
+                    className="h-8 rounded-lg px-2.5 text-[11px] font-bold text-muted active:bg-line/60"
+                  >
+                    Reply
+                  </button>
+                </>
+              )}
 
               {isMine && (
                 <button

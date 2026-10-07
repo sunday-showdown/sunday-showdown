@@ -4,7 +4,6 @@ import { resolveLeague } from '@/lib/league';
 import { loadChannels } from '@/lib/chat';
 import AppBar from '@/components/AppBar';
 import ChannelList, { type DmCandidate } from '@/components/ChannelList';
-import LeagueSwitcher from '@/components/LeagueSwitcher';
 import EmptyState from '@/components/EmptyState';
 
 export const metadata = { title: 'Chat' };
@@ -19,33 +18,16 @@ export default async function FeedPage({
   const params = await searchParams;
   const supabase = await createServerSupabase();
 
-  const { leagues, league } = await resolveLeague(supabase, user.id, params.league);
-  if (!league) {
-    return (
-      <main>
-        <AppBar title="Chat" />
-        <EmptyState
-          title="No league yet"
-          body="Channels belong to a league. Create one or join with a code and the rooms appear."
-          action={
-            <div className="flex flex-col gap-2">
-              <Link href="/leagues/new" className="btn-primary px-5 text-sm">
-                Create a league
-              </Link>
-              <Link href="/leagues/join" className="btn-ghost px-5 text-sm">
-                Join with a code
-              </Link>
-            </div>
-          }
-        />
-      </main>
-    );
-  }
-
+  // No league required. Chat used to refuse to render without one, which made
+  // messaging a friend conditional on being in a league with somebody — and a
+  // direct message has never had anything to do with a league.
+  const { leagues, league } = await resolveLeague(supabase, user.id);
 
   const [channels, { data: members }, { data: following }] = await Promise.all([
     loadChannels(supabase, user.id),
-    supabase.from('league_members').select('user_id').eq('league_id', league.id),
+    // Every league's members, not just the active one's: who you may message is
+    // not a property of whichever league happens to be selected.
+    supabase.from('league_members').select('user_id'),
     supabase.from('follows').select('following_id').eq('follower_id', user.id),
   ]);
 
@@ -81,19 +63,14 @@ export default async function FeedPage({
     <main>
       <AppBar
         title="Chat"
-        subtitle={
-          unread > 0
-            ? `${unread} unread across your leagues`
-            : 'Talk, pictures, GIFs, slips and cards'
-        }
-        trailing={<LeagueSwitcher leagues={leagues} currentId={league.id} />}
+        subtitle={unread > 0 ? `${unread} unread` : 'Leagues, plays and friends'}
       />
 
       <ChannelList
         channels={channels}
         leagues={leagues}
-        leagueId={league.id}
-        isCommissioner={league.commissioner_id === user.id}
+        leagueId={league?.id ?? null}
+        isCommissioner={league !== null && league.commissioner_id === user.id}
         candidates={candidates}
       />
     </main>

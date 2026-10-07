@@ -12,6 +12,10 @@ interface Props {
   replyTo: { id: string; author: string | null; excerpt: string } | null;
   onCancelReply: () => void;
   onSent: () => void;
+  /** Slips and cards only: no text, no replies. See migration 0034. */
+  playsOnly?: boolean;
+  /** This league's open contest, so a plays room can post the week's card. */
+  cardChallengeId?: string | null;
 }
 
 /**
@@ -32,6 +36,8 @@ export default function Composer({
   replyTo,
   onCancelReply,
   onSent,
+  playsOnly = false,
+  cardChallengeId = null,
 }: Props) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -42,6 +48,29 @@ export default function Composer({
   const [trayOpen, setTrayOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
+
+  /** Put this week's card in the room. The same call ShareCardButton makes. */
+  const postCard = async (challengeId: string) => {
+    setSending(true);
+    setError('');
+    try {
+      const response = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channelId, kind: 'pick_card', challengeId }),
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        setError(result?.error ?? 'That did not post.');
+        return;
+      }
+      onSent();
+    } catch {
+      setError('Network error.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   const resize = () => {
     const node = textarea.current;
@@ -148,6 +177,62 @@ export default function Composer({
   };
 
   const busy = sending || uploading;
+
+  // A plays room takes positions, not sentences. The text box is not disabled
+  // here, it is absent: a greyed-out field invites people to work out why, and
+  // the only two things that may be posted are worth being the only two things
+  // on offer. The database refuses anything else regardless (migration 0034).
+  if (playsOnly) {
+    return (
+      <>
+        <div
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur-xl"
+          style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+        >
+          <div className="mx-auto max-w-md px-3 pt-2.5">
+            {error && (
+              <p role="alert" className="mb-1.5 rounded-xl bg-loss/15 px-3 py-1.5 text-[11px] text-loss">
+                {error}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSlipOpen(true)}
+                className="btn-primary h-11 flex-1 text-[14px]"
+              >
+                Post a slip
+              </button>
+              {cardChallengeId && (
+                <button
+                  type="button"
+                  disabled={sending}
+                  onClick={() => void postCard(cardChallengeId)}
+                  className="btn-ghost h-11 flex-1 text-[14px]"
+                >
+                  {sending ? 'Posting…' : 'Post your card'}
+                </button>
+              )}
+            </div>
+            <p className="pb-1 pt-1.5 text-center text-[10px] text-muted">
+              Plays only. React to them — the talking goes in Trash Talk.
+            </p>
+          </div>
+        </div>
+
+        <BetSlipComposer
+          open={slipOpen}
+          onClose={() => setSlipOpen(false)}
+          channelId={channelId}
+          leagueId={leagueId}
+          onShared={() => {
+            setSlipOpen(false);
+            onSent();
+          }}
+        />
+      </>
+    );
+  }
 
   return (
     <>
