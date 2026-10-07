@@ -16,7 +16,7 @@ Built:
 - **Pick'em** — the full loop: schedule, odds, picking, locking, line freezing, grading, standings, career stats
 - **Home** — a hub: last week's recap, this week's card with the league it belongs to, and every mode, pool and buy-in you are actually in
 - **Week recap** — how the week went, your best call and the one that hurt, with duels and other modes beside it
-- **Duels** — head to head against any friend or league mate, for a week or the whole season, drawn as a fight: both start at 100 HP and the better card lands the difference. Six football-gladiator fighters to pick from, all cosmetic
+- **Duels** — head to head against any friend or league mate, for a week or the whole season, drawn as a fight: both start at 100 HP and the better card lands the difference. Six players to pick from — Captain, Speedster, Playmaker, Bruiser, Enforcer, Juggernaut — all cosmetic
 - **Ranks** — global by default, filterable to each of your leagues
 - **Onboarding** — four cards on first sign-in, skippable, replayable from your profile
 - **Other modes** — Survivor, TD Scorer, playground, each with its own pot

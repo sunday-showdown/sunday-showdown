@@ -6,44 +6,49 @@ import { archetypeOf, bannerOf } from '@/lib/fighters';
 /**
  * A fighter, drawn.
  *
- * The six archetypes were emoji — an axe, a shield, a crystal ball — which was
- * fine as a placeholder and wrong for this app: a football pick'em called
- * Showdown had a wizard in its arena. These are football gladiators, built from
- * one shared bust so the six read as a set: shoulder pads, a helmet, a facemask
- * cage. What separates them is everything above and around the shell, which is
- * the part still legible at 44 pixels in a list.
+ * Six players from a modern football game, not six warriors. The mix is about
+ * 70% football, 20% gladiator, 10% street: the equipment is real kit pushed a
+ * little further — reinforced pads, metallic trim, a tinted visor, tactical
+ * straps — rather than armour from somewhere else. The first pass drifted:
+ * crests, bull horns and a laurel wreath made the arena the dominant identity
+ * and the sport the decoration. Horns became pad studs, the laurel became a
+ * captain's patch, and the plume became a helmet stripe.
  *
- * Laid out on a fixed 64-unit grid, in three bands, so a new archetype can be
- * added without re-deriving where anything sits:
+ * Bright on purpose. These sit on a near-black UI and an unlit figure
+ * disappears into it, so every one of them carries a strong top-left highlight,
+ * a metallic rim on the pads and a saturated visor. The face opening is a warm
+ * shadow rather than a hole — a black void under a cage is the single thing
+ * that made the early drafts read as horror.
  *
- *   y 0–11   crest, horns, wings — whatever makes the silhouette
- *   y 11–49  the helmet, with the face opening and cage at its lower half
- *   y 46–64  shoulder pads, running off the bottom edge
+ * One 96-unit grid in three bands, so a seventh fighter is a matter of filling
+ * them in rather than re-deriving where anything sits:
  *
- * Nothing here is random or stateful. The shell takes the fighter's banner
- * colours, so the same fighter is the same object on every screen, and it is one
- * inline SVG rather than six image files — at these sizes the paths cost less
- * than the requests would.
+ *   y 10–20  whatever tops the helmet
+ *   y 16–70  the helmet, with the visor and cage across its lower half
+ *   y 66–96  pads and collar, running off the bottom edge
+ *
+ * Nothing here is random or stateful. The kit takes the fighter's banner
+ * colours so the same fighter is the same player on every screen, and it is one
+ * inline SVG rather than six image files.
  */
 
-/**
- * The helmet shell.
- *
- * A flat-ish crown rather than a dome — the first draft arced too high over too
- * narrow a base and read as a motorcycle helmet. The jaw tucks in below the ear
- * line, which is the line that says football.
- */
-const SHELL =
-  'M13 33C13 18.5 21 11.5 32 11.5S51 18.5 51 33v6c0 7.5-8 12-19 12s-19-4.5-19-12z';
+type Kind =
+  | 'captain'
+  | 'speedster'
+  | 'playmaker'
+  | 'bruiser'
+  | 'enforcer'
+  | 'juggernaut';
 
-/**
- * The face opening.
- *
- * Deliberately large — close to half the shell. A real facemask frames most of
- * the face, and the small slot this started as left the cage floating in the
- * middle of a blank helmet with nothing to be a cage over.
- */
-const FACE = 'M21.5 31h21v10c0 6.5-4.5 10-10.5 10s-10.5-3.5-10.5-10z';
+/** How each player is built, which is most of what tells them apart in a list. */
+const BUILD: Record<Kind, { pads: number; shell: number; brow: number }> = {
+  captain: { pads: 0, shell: 0, brow: 0 },
+  speedster: { pads: -7, shell: -3, brow: -1 },
+  playmaker: { pads: -3, shell: -1, brow: 0 },
+  bruiser: { pads: 7, shell: 2, brow: 2 },
+  enforcer: { pads: 3, shell: 1, brow: 3 },
+  juggernaut: { pads: 11, shell: 4, brow: 2 },
+};
 
 export default function FighterArt({
   archetype,
@@ -61,191 +66,342 @@ export default function FighterArt({
   const uid = useId().replace(/:/g, '');
   const shell = `sh-${uid}`;
   const pads = `pd-${uid}`;
+  const glass = `gl-${uid}`;
+  const chrome = `cr-${uid}`;
 
+  const meta = archetypeOf(archetype);
+  const kind = meta.id as Kind;
+  const build = BUILD[kind] ?? BUILD.captain;
   const { from, to } = bannerOf(banner);
-  const kind = archetypeOf(archetype).id;
+  const visor = meta.visor;
+
+  const w = build.shell;
+
+  // The shell, widened or narrowed per build. A receiver's helmet is not a nose
+  // tackle's, and at 44 pixels the outline is most of what you can tell apart.
+  const helmet =
+    `M${22 - w} 52 C${22 - w} 30 ${32 - w} 20 48 20 C${64 + w} 20 ${74 + w} 30 ${74 + w} 52` +
+    ` L${74 + w} 57 C${74 + w} 67 ${64 + w} 73 48 73 C${32 - w} 73 ${22 - w} 67 ${22 - w} 57 Z`;
 
   return (
     <svg
-      viewBox="0 0 64 64"
+      viewBox="0 0 96 96"
       width={size}
       height={size}
       className={className}
       role="img"
-      aria-label={`${archetypeOf(archetype).name} fighter`}
+      aria-label={`${meta.name}, ${meta.position}`}
     >
       <defs>
-        <linearGradient id={shell} x1="0.2" y1="0" x2="0.9" y2="1">
+        <linearGradient id={shell} x1="0.15" y1="0" x2="0.85" y2="1">
+          <stop offset="0%" stopColor={lighten(from, 0.28)} />
+          <stop offset="55%" stopColor={from} />
+          <stop offset="100%" stopColor={to} />
+        </linearGradient>
+        <linearGradient id={pads} x1="0.2" y1="0" x2="0.8" y2="1">
           <stop offset="0%" stopColor={from} />
           <stop offset="100%" stopColor={to} />
         </linearGradient>
-        {/* Pads sit behind and read as a darker mass, so the helmet stays the
-            thing the eye lands on. */}
-        <linearGradient id={pads} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={to} />
-          <stop offset="100%" stopColor={to} stopOpacity="0.55" />
+        <linearGradient id={glass} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={visor} stopOpacity="0.95" />
+          <stop offset="60%" stopColor={visor} stopOpacity="0.55" />
+          <stop offset="100%" stopColor={visor} stopOpacity="0.85" />
+        </linearGradient>
+        {/* Metallic trim. Three stops, because two reads as plastic. */}
+        <linearGradient id={chrome} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
+          <stop offset="45%" stopColor="#c7d0dc" stopOpacity="0.75" />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0.9" />
         </linearGradient>
       </defs>
 
-      <Ornament kind={kind} from={from} to={to} place="behind" />
-      <Pads kind={kind} fill={`url(#${pads})`} />
+      <Pads kind={kind} spread={build.pads} fill={`url(#${pads})`} trim={`url(#${chrome})`} accent={visor} />
 
-      <path d={SHELL} fill={`url(#${shell})`} />
-      {/* One highlight along the crown. Without it the shell is a flat blob at
-          any size above about 60 pixels. */}
+      {/* Collar, behind the helmet. Dark, so the helmet reads as sitting in
+          front of something rather than floating. */}
+      <path d="M34 62h28v14a7 7 0 0 1-7 7H41a7 7 0 0 1-7-7z" fill="#171114" />
+
+      <path d={helmet} fill={`url(#${shell})`} />
+
+      {/* Clean light from the upper left: the single biggest difference between
+          "modern sports game" and "grimdark". */}
       <path
-        d="M32 11.5c-8.5 0-15.3 5.4-17.8 13.6C17.8 19.4 24.3 15.5 32 15.5s14.2 3.9 17.8 9.6C47.3 16.9 40.5 11.5 32 11.5z"
-        fill="#fff"
-        fillOpacity="0.26"
+        d={`M48 20C${34 - w} 20 ${24 - w} 30 ${23 - w} 47c4-13 13-21 25-23z`}
+        fill="#ffffff"
+        fillOpacity="0.34"
       />
 
-      {/* Ear holes. One small detail that fixes the helmet as football rather
-          than as generic armour. */}
-      <circle cx="14.6" cy="37" r="2.1" fill="#0b0809" fillOpacity="0.45" />
-      <circle cx="49.4" cy="37" r="2.1" fill="#0b0809" fillOpacity="0.45" />
+      {/* Helmet stripe, the way every real shell is painted. */}
+      <path d="M44 20.4h8V50h-8z" fill={`url(#${chrome})`} opacity="0.5" />
 
-      <path d={FACE} fill="#09070880" />
-      <path d={FACE} fill="#0b0809" fillOpacity="0.72" />
+      <Crown kind={kind} w={w} accent={visor} trim={`url(#${chrome})`} />
 
-      {/* The cage: three runners and a centre post, mounted wider than the
-          opening because that is where a facemask actually bolts on. */}
-      <g
-        stroke="#f2eef0"
+      {/* The face. A warm shadow, never a void. */}
+      <path d="M31 46h34v15c0 8-7 13-17 13s-17-5-17-13z" fill="#3d2c2e" />
+      <path d="M31 46h34v8H31z" fill="#261b1d" opacity="0.5" />
+
+      {/* Visor. */}
+      <Visor kind={kind} glass={`url(#${glass})`} accent={visor} />
+
+      {/* Facemask. Light metal over the shadow, bar pattern per position — a
+          quarterback can see, a nose tackle is behind a grill. */}
+      <Cage kind={kind} trim={`url(#${chrome})`} />
+
+      {/* Chin strap, buckled to the shell. */}
+      <path
+        d={`M${28 - w} 60c1 9 8 15 20 15s19-6 20-15`}
+        fill="none"
+        stroke="#ffffff"
+        strokeOpacity="0.5"
         strokeWidth="2"
         strokeLinecap="round"
-        strokeOpacity="0.92"
-        fill="none"
-      >
-        <path d="M18.5 35.5h27" />
-        <path d="M20 42h24" />
-        <path d="M25 48h14" />
-        <path d="M32 31v19.5" />
-      </g>
+      />
 
-      <Ornament kind={kind} from={from} to={to} place="front" />
+      <Accessory kind={kind} spread={build.pads} accent={visor} trim={`url(#${chrome})`} />
     </svg>
   );
 }
 
 /**
- * Pad width is the fighter's build.
+ * Shoulder pads.
  *
- * A wide receiver and a nose tackle wearing the same shoulders would make three
- * of the six interchangeable from across a list.
+ * Width is the build. A metallic rim along the top edge and a seam across the
+ * chest keep them from reading as one solid lump at small sizes.
  */
-function Pads({ kind, fill }: { kind: string; fill: string }) {
-  const spread =
-    kind === 'juggernaut' || kind === 'bulwark' ? 5 : kind === 'streak' || kind === 'gunslinger' ? -4 : 0;
-
+function Pads({
+  kind,
+  spread,
+  fill,
+  trim,
+  accent,
+}: {
+  kind: Kind;
+  spread: number;
+  fill: string;
+  trim: string;
+  accent: string;
+}) {
   const left = 4 - spread;
-  const right = 60 + spread;
+  const right = 92 + spread;
 
   return (
     <g>
       <path
-        d={`M${left} 64c0-10 5.5-16.5 14-18h28c8.5 1.5 14 7.5 14 18z`}
-        transform={spread !== 0 ? `translate(${spread ? 0 : 0} 0)` : undefined}
+        d={`M${left} 96c0-18 9-28 22-30h20c13 2 22 12 22 30z`}
         fill={fill}
       />
-      {/* A seam across the chest plate, so the pads are not one solid lump. */}
+      {/* Lit top edge. */}
       <path
-        d={`M${left + 5} 58h${right - left - 10}`}
-        stroke="#000"
-        strokeOpacity="0.26"
-        strokeWidth="1.5"
+        d={`M${left + 2} 93c1-14 9-22 21-24h18c12 2 20 10 21 24`}
+        fill="none"
+        stroke={trim}
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        opacity="0.75"
+      />
+      <path
+        d={`M${left + 10} 87h${right - left - 20}`}
+        stroke="#000000"
+        strokeOpacity="0.25"
+        strokeWidth="2"
         strokeLinecap="round"
         fill="none"
       />
+
+      {/* Asymmetric plate on one shoulder: the one Mad Max note that belongs,
+          because real pads are strapped and layered too. */}
+      <path
+        d={`M${left + 2} 96c0-11 5-18 13-20l6 5-4 15z`}
+        fill={accent}
+        fillOpacity={kind === 'speedster' || kind === 'captain' ? 0.35 : 0.55}
+      />
+
+      {/* Studs on the heavy builds. These replaced the bull horns: same
+          aggression, and nobody mistakes them for a fantasy helmet. */}
+      {(kind === 'enforcer' || kind === 'juggernaut' || kind === 'bruiser') && (
+        <g fill={trim}>
+          <circle cx={right - 12} cy={80} r="2.6" />
+          <circle cx={right - 20} cy={86} r="2.6" />
+          <circle cx={right - 6} cy={87} r="2.6" />
+        </g>
+      )}
     </g>
   );
 }
 
-function Ornament({
-  kind,
-  from,
-  to,
-  place,
-}: {
-  kind: string;
-  from: string;
-  to: string;
-  place: 'behind' | 'front';
-}) {
-  // Linebacker: the centurion's brush crest, and a ridge down the crown.
-  if (kind === 'centurion') {
-    return place === 'behind' ? (
-      <g fill={to}>
-        <path d="M32 0c-3.8 0-6.2 3.2-6.9 9L24.6 16h14.8l-.5-7c-.7-5.8-3.1-9-6.9-9z" />
-        <path d="M27 5h10M26.4 10h11.2" stroke={from} strokeOpacity="0.45" strokeWidth="1.3" fill="none" />
+/** What tops the helmet. Kit, not costume. */
+function Crown({ kind, w, accent, trim }: { kind: Kind; w: number; accent: string; trim: string }) {
+  // Aero fins, the way a modern speed helmet is vented.
+  if (kind === 'speedster') {
+    return (
+      <g fill={accent} opacity="0.75">
+        <path d={`M${28 - w} 37h9l-2 3h-9z`} />
+        <path d={`M${30 - w} 43h9l-2 3h-9z`} />
+        <path d={`M${61 + w} 37h9l-2 3h-9z`} />
+        <path d={`M${59 + w} 43h9l-2 3h-9z`} />
       </g>
-    ) : (
-      <path d="M30.2 12h3.6v15h-3.6z" fill={to} fillOpacity="0.5" />
     );
   }
 
-  // Nose tackle: bull horns, swept wide and low off the ear holes.
-  if (kind === 'juggernaut') {
-    return place === 'behind' ? (
-      <g fill={to}>
-        <path d="M16.5 24C9 18.5 2.5 19 0 26c4.5-3 10-2 15 3z" />
-        <path d="M47.5 24C55 18.5 61.5 19 64 26c-4.5-3-10-2-15 3z" />
-      </g>
-    ) : null;
-  }
-
-  // Edge rusher: blades raked back off the shell.
-  if (kind === 'blitzer') {
-    return place === 'behind' ? (
-      <g fill={to}>
-        <path d="M17.5 19 3 6l8.5 17.5z" />
-        <path d="M46.5 19 61 6l-8.5 17.5z" />
-      </g>
-    ) : null;
-  }
-
-  // Receiver: speed wings, the oldest shorthand in sport for fast.
-  if (kind === 'streak') {
-    return place === 'behind' ? (
-      <g fill={from}>
-        <path d="M17.5 25 0 17l15.5 3.5L2 9l17 10z" />
-        <path d="M17 30.5 2 28.5l14.5-.5z" fillOpacity="0.72" />
-        <path d="M46.5 25 64 17l-15.5 3.5L62 9 45 19z" />
-        <path d="M47 30.5 62 28.5l-14.5-.5z" fillOpacity="0.72" />
-      </g>
-    ) : null;
-  }
-
-  // Quarterback: a laurel, because the arm that wins it gets crowned.
-  if (kind === 'gunslinger') {
-    // Leaves hug the shell rather than sticking out from it — swept outwards
-    // they looked like a second pair of wings, and Streak already has those.
-    const leaf = (x: number, y: number, rotation: number, key: string) => (
-      <ellipse key={key} cx={x} cy={y} rx="3.4" ry="1.8" transform={`rotate(${rotation} ${x} ${y})`} />
-    );
-    return place === 'front' ? (
-      <g fill={from}>
-        {[0, 1, 2, 3].map((i) => leaf(15.8 + i * 1.9, 37 - i * 6, -68 - i * 9, `l${i}`))}
-        {[0, 1, 2, 3].map((i) => leaf(48.2 - i * 1.9, 37 - i * 6, 68 + i * 9, `r${i}`))}
-      </g>
-    ) : null;
-  }
-
-  // Left tackle: the shield. The only fighter who brings cover.
-  if (kind === 'bulwark') {
-    return place === 'front' ? (
+  // A raised centre ridge, like a reinforced shell.
+  if (kind === 'enforcer') {
+    return (
       <g>
-        <path d="M46 28c6.5 0 11 2 13 3.2v10.3c0 7.6-5.4 13.2-13 16.5-7.6-3.3-13-8.9-13-16.5V31.2c2-1.2 6.5-3.2 13-3.2z" fill={to} />
-        <path
-          d="M46 28c6.5 0 11 2 13 3.2v10.3c0 7.6-5.4 13.2-13 16.5-7.6-3.3-13-8.9-13-16.5V31.2c2-1.2 6.5-3.2 13-3.2z"
-          fill="none"
-          stroke="#f2eef0"
-          strokeOpacity="0.55"
-          strokeWidth="1.5"
-        />
-        <path d="M46 34v19" stroke="#f2eef0" strokeOpacity="0.5" strokeWidth="1.4" />
+        <path d="M42 46c0-16 2-24 6-26 4 2 6 10 6 26z" fill={accent} opacity="0.9" />
+        <path d="M48 21v24" stroke={trim} strokeWidth="1.8" fill="none" opacity="0.8" />
       </g>
-    ) : null;
+    );
+  }
+
+  // A roll bar across the crown on the biggest player.
+  if (kind === 'juggernaut') {
+    return (
+      <path
+        d={`M${28 - w} 36c5-10 11-15 20-15s15 5 20 15`}
+        fill="none"
+        stroke={trim}
+        strokeWidth="3"
+        strokeLinecap="round"
+        opacity="0.85"
+      />
+    );
   }
 
   return null;
+}
+
+/** Visor style. A quarterback sees; a fullback wants to be seen. */
+function Visor({ kind, glass, accent }: { kind: Kind; glass: string; accent: string }) {
+  // No visor: bare eyes under the brow, with eye black.
+  if (kind === 'bruiser') {
+    return (
+      <g>
+        <path d="M36 51h9v5h-9z" fill="#120d0f" />
+        <path d="M51 51h9v5h-9z" fill="#120d0f" />
+        <path d="M35 58h10v3H35zM51 58h10v3H51z" fill="#120d0f" opacity="0.8" />
+      </g>
+    );
+  }
+
+  // A half visor leaves the eyes visible above it.
+  if (kind === 'playmaker') {
+    return (
+      <g>
+        <path d="M36 50h8v5h-8zM52 50h8v5h-8z" fill="#120d0f" />
+        <path d="M32 57h32v4c0 1-1 2-2 2H34c-1 0-2-1-2-2z" fill={glass} />
+        <path d="M35 58h11" stroke="#ffffff" strokeOpacity="0.75" strokeWidth="1.5" />
+      </g>
+    );
+  }
+
+  return (
+    <g>
+      <path d="M32 47h32v9c0 3-6 5-16 5s-16-2-16-5z" fill={glass} />
+      {/* One diagonal streak reads as glass rather than as paint. */}
+      <path d="M37 48l-3 11h5l3-11z" fill="#ffffff" fillOpacity="0.55" />
+      <path d="M32 47h32" stroke={accent} strokeWidth="1.8" opacity="0.95" />
+    </g>
+  );
+}
+
+/** Facemask. The bar pattern is the position. */
+function Cage({ kind, trim }: { kind: Kind; trim: string }) {
+  const bars =
+    kind === 'captain'
+      ? ['M29 64h38', 'M33 71h30']
+      : kind === 'speedster'
+        ? ['M29 64h38', 'M32 70h32']
+        : kind === 'playmaker'
+          ? ['M29 63h38', 'M31 69h34', 'M35 74h26']
+          : kind === 'bruiser'
+            ? ['M28 61h40', 'M29 67h38', 'M32 72h32', 'M36 76h24']
+            : kind === 'enforcer'
+              ? ['M28 61h40', 'M30 67h36', 'M34 73h28']
+              : ['M28 59h40', 'M28 64h40', 'M30 69h36', 'M33 74h30'];
+
+  const posts = kind === 'juggernaut' || kind === 'bruiser' ? [38, 48, 58] : [48];
+
+  return (
+    <g strokeLinecap="round" fill="none">
+      {/* Drawn twice: a dark pass underneath so the bars hold their shape
+          against a light visor, then the metal on top. At 44 pixels a single
+          thin stroke vanished and the helmet read as a motorcycle lid. */}
+      <g stroke="#120d0f" strokeOpacity="0.55" strokeWidth="4.6">
+        {bars.map((d) => (
+          <path key={d} d={d} />
+        ))}
+        {posts.map((x) => (
+          <path key={x} d={`M${x} 57v20`} />
+        ))}
+      </g>
+      <g stroke={trim} strokeWidth="3">
+        {bars.map((d) => (
+          <path key={d} d={d} />
+        ))}
+        {posts.map((x) => (
+          <path key={x} d={`M${x} 57v20`} strokeWidth="2.8" />
+        ))}
+      </g>
+    </g>
+  );
+}
+
+/** One thing each player carries that nobody else does. */
+function Accessory({
+  kind,
+  spread,
+  accent,
+  trim,
+}: {
+  kind: Kind;
+  spread: number;
+  accent: string;
+  trim: string;
+}) {
+  const left = 8 - spread;
+
+  // The captain's patch, where a real captain wears it.
+  if (kind === 'captain') {
+    return (
+      <g>
+        <circle cx={left + 13} cy={84} r="6" fill="#0d0a0b" fillOpacity="0.55" />
+        <circle cx={left + 13} cy={84} r="6" fill="none" stroke={trim} strokeWidth="1.5" />
+        <path
+          d={`M${left + 15.6} 81.4a3.4 3.4 0 1 0 0 5.2`}
+          fill="none"
+          stroke={accent}
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </g>
+    );
+  }
+
+  // A towel at the waist, the way a back plays.
+  if (kind === 'playmaker') {
+    return <path d="M60 86h9v10h-9z" fill="#ffffff" fillOpacity="0.8" />;
+  }
+
+  // Taped forearm.
+  if (kind === 'speedster') {
+    return (
+      <g stroke="#ffffff" strokeOpacity="0.75" strokeWidth="2" strokeLinecap="round">
+        <path d="M16 90h10" />
+        <path d="M14 95h12" />
+      </g>
+    );
+  }
+
+  return null;
+}
+
+/** Mix a hex colour towards white, for the lit face of the shell. */
+function lighten(hex: string, amount: number): string {
+  const value = hex.replace('#', '');
+  const full = value.length === 3 ? value.split('').map((c) => c + c).join('') : value;
+  const channel = (at: number) => {
+    const base = parseInt(full.slice(at, at + 2), 16);
+    return Math.round(base + (255 - base) * amount);
+  };
+  return `rgb(${channel(0)}, ${channel(2)}, ${channel(4)})`;
 }

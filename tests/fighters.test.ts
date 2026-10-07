@@ -40,6 +40,12 @@ describe('defaultFighter', () => {
     }
   });
 
+  it('gives each one its own visor accent, so a shared banner still reads as six', () => {
+    const accents = new Set(ARCHETYPES.map((a) => a.visor));
+    expect(accents.size).toBe(ARCHETYPES.length);
+    for (const accent of accents) expect(accent).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+
   it('always produces a valid archetype and banner', () => {
     for (let i = 0; i < 40; i += 1) {
       const fighter = defaultFighter(`seed-${i}`, 'Someone');
@@ -65,7 +71,7 @@ describe('defaultFighter', () => {
 });
 
 describe('validateFighter', () => {
-  const valid = { name: 'Ironjaw', archetype: 'centurion', banner: 'gold', taunt: 'Bring it.' };
+  const valid = { name: 'Ironjaw', archetype: 'captain', banner: 'gold', taunt: 'Bring it.' };
 
   it('accepts a complete draft', () => {
     const result = validateFighter(valid);
@@ -90,11 +96,16 @@ describe('validateFighter', () => {
     expect(validateFighter({ ...valid, banner: '#000000' }).ok).toBe(false);
   });
 
-  it('refuses the retired fantasy archetypes', () => {
-    // These shipped before the fighters became football gladiators. Migration
-    // 0025 remaps the stored rows; this makes sure nothing writes one back.
-    for (const retired of ['brawler', 'gladiator', 'duelist', 'berserker', 'oracle', 'titan']) {
-      expect(validateFighter({ ...valid, archetype: retired }).ok).toBe(false);
+  it('refuses every retired archetype', () => {
+    // Two earlier rosters: the fantasy classes, then the gladiator-leaning
+    // names. Migrations 0025 and 0035 remap the stored rows; this makes sure
+    // nothing writes one back.
+    const retired = [
+      'brawler', 'gladiator', 'duelist', 'berserker', 'oracle', 'titan',
+      'centurion', 'blitzer', 'streak', 'gunslinger', 'bulwark',
+    ];
+    for (const old of retired) {
+      expect(validateFighter({ ...valid, archetype: old }).ok).toBe(false);
     }
   });
 

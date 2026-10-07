@@ -6,12 +6,18 @@
 // and the first person to work out the best build would simply have it. So an
 // archetype buys you a silhouette, a colour and a name for your big swing.
 //
-// They are football gladiators: a position on the field crossed with a figure
-// from the arena, which is what the app is called and what a duel is. They were
-// generic fantasy classes with emoji for faces, so the arena of a football
-// pick'em had a wizard standing in it. The artwork is components/FighterArt.tsx;
-// what lives here is only the data the art and the copy both read, so a
-// silhouette and the name under it can never disagree.
+// They are football players first. The mix is roughly 70% football, 20%
+// gladiator, 10% street — a modern sports-game roster with its equipment pushed
+// a little further, not fantasy warriors and not apocalypse survivors. The
+// first pass drifted the wrong way: crests, bull horns and laurel wreaths put
+// the arena ahead of the sport. Horns are studs now and the laurel is a
+// captain's patch.
+//
+// Six personalities rather than six athletes — the captain who knows how it
+// ends, the receiver who has already beaten you, the back who never looks like
+// he is trying. The artwork is components/FighterArt.tsx; what lives here is
+// only the data the art and the copy both read, so a silhouette and the name
+// under it can never disagree.
 //
 // Everybody has a fighter whether or not they ever open the builder, because an
 // arena with an empty plinth in it looks broken. defaultFighter() derives one
@@ -20,46 +26,53 @@
 
 export const ARCHETYPES = [
   {
-    id: 'centurion',
-    name: 'Centurion',
+    id: 'captain',
+    name: 'Captain',
+    position: 'Quarterback',
+    blurb: 'Already knows how this ends.',
+    strike: 'The Dagger',
+    /** The accent on the visor, so six fighters differ even in one banner. */
+    visor: '#7fe3ff',
+  },
+  {
+    id: 'speedster',
+    name: 'Speedster',
+    position: 'Wide receiver',
+    blurb: 'You get one step. You will not use it.',
+    strike: 'Overdrive',
+    visor: '#9dff6a',
+  },
+  {
+    id: 'playmaker',
+    name: 'Playmaker',
+    position: 'Running back',
+    blurb: 'Never looks like he is trying.',
+    strike: 'Cutback',
+    visor: '#ffd24a',
+  },
+  {
+    id: 'bruiser',
+    name: 'Bruiser',
+    position: 'Fullback',
+    blurb: 'Would rather go through you than round you.',
+    strike: 'Battering Ram',
+    visor: '#ff8a4a',
+  },
+  {
+    id: 'enforcer',
+    name: 'Enforcer',
     position: 'Linebacker',
-    blurb: 'Reads it before it happens, then ends it.',
-    strike: 'Blindside',
+    blurb: 'Hunting contact, not tackles.',
+    strike: 'The Hammer',
+    visor: '#ff6b7d',
   },
   {
     id: 'juggernaut',
     name: 'Juggernaut',
     position: 'Nose tackle',
-    blurb: 'Two blockers. Still arrives.',
-    strike: 'Trench Quake',
-  },
-  {
-    id: 'blitzer',
-    name: 'Blitzer',
-    position: 'Edge rusher',
-    blurb: 'Off the snap and already past you.',
-    strike: 'Sack Storm',
-  },
-  {
-    id: 'streak',
-    name: 'Streak',
-    position: 'Wide receiver',
-    blurb: 'One step. That is all it takes.',
-    strike: 'Go Route',
-  },
-  {
-    id: 'gunslinger',
-    name: 'Gunslinger',
-    position: 'Quarterback',
-    blurb: 'Never saw a window he did not like.',
-    strike: 'Hail Mary',
-  },
-  {
-    id: 'bulwark',
-    name: 'Bulwark',
-    position: 'Left tackle',
-    blurb: 'Nothing gets through. Nothing.',
-    strike: 'Pocket Wall',
+    blurb: 'Smiling, because nobody has stopped him yet.',
+    strike: 'Collapse',
+    visor: '#c89dff',
   },
 ] as const;
 
