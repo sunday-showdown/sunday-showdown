@@ -209,9 +209,9 @@ function Art({ kind }: { kind: Card['art'] }) {
   if (kind === 'modes') {
     return (
       <div className="flex w-full max-w-[17rem] items-center justify-center gap-3">
-        <FighterArt archetype="centurion" banner="crimson" size={72} />
+        <FighterArt archetype="enforcer" banner="crimson" size={64} frame="full" />
         <span className="display text-[15px] text-muted">vs</span>
-        <FighterArt archetype="streak" banner="gold" size={72} />
+        <FighterArt archetype="speedster" banner="gold" size={64} frame="full" />
       </div>
     );
   }

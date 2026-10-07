@@ -195,7 +195,7 @@ function FighterPlinth({
     <div className={mine ? 'text-left' : 'text-right'}>
       <div className={`flex items-end gap-2 ${mine ? '' : 'flex-row-reverse'}`}>
         <span
-          className={`flex h-14 w-14 shrink-0 items-center justify-center transition-[filter,transform,opacity] duration-700 ${
+          className={`flex h-[86px] w-14 shrink-0 items-end justify-center transition-[filter,transform,opacity] duration-700 ${
             down ? 'opacity-40 grayscale' : ''
           }`}
           style={{
@@ -207,7 +207,8 @@ function FighterPlinth({
           <FighterArt
             archetype={side.fighter.archetype}
             banner={side.fighter.banner}
-            size={56}
+            size={52}
+            frame="full"
           />
         </span>
       </div>
