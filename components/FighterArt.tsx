@@ -24,6 +24,13 @@ import { archetypeOf, bannerOf } from '@/lib/fighters';
  * per-character anchor from lib/fighters.ts, because a whole figure at 44
  * pixels in a list row is a smudge, and these six stand differently enough that
  * one fixed crop would behead at least two of them.
+ *
+ * All six are drawn facing right or square on, so a duel mirrors whoever stands
+ * on the right. The mirror goes on the wrapper, not the image: the idle and
+ * ready animations animate `transform`, and an animated property beats an
+ * inline one outright — so a flip set on the image was silently thrown away for
+ * as long as the animation ran, which was always, and both fighters faced the
+ * same way.
  */
 
 export type FighterState = 'idle' | 'ready' | 'hit' | 'down';
@@ -86,6 +93,7 @@ export default function FighterArt({
         height: size,
         width: frame === 'bust' ? size : 'auto',
         overflow: frame === 'bust' ? 'hidden' : 'visible',
+        transform: flip ? 'scaleX(-1)' : undefined,
       }}
     >
       {glow && (
@@ -113,7 +121,6 @@ export default function FighterArt({
           position: frame === 'bust' ? 'absolute' : 'relative',
           left: frame === 'bust' ? offsetX : undefined,
           top: frame === 'bust' ? offsetY : undefined,
-          transform: flip ? 'scaleX(-1)' : undefined,
           transformOrigin: 'center bottom',
           animation: ANIMATION[state],
           filter: state === 'down' ? 'grayscale(0.7) brightness(0.65)' : undefined,
