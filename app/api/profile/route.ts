@@ -5,6 +5,7 @@
 // act on rather than a Postgres error.
 
 import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
+import { isSportsbook } from '@/lib/sportsbooks';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,8 +20,31 @@ export async function PATCH(request: Request) {
     return Response.json({ error: 'invalid JSON body' }, { status: 400 });
   }
 
-  const { unitSize } = (body ?? {}) as Record<string, unknown>;
+  const { unitSize, username, preferredBooks } = (body ?? {}) as Record<string, unknown>;
   const patch: Record<string, unknown> = {};
+
+  if (username !== undefined) {
+    const name = String(username).trim();
+    // The same shape the check constraint enforces (migration 0033), said in
+    // English rather than as a constraint violation.
+    if (!/^[A-Za-z0-9_.]{3,20}$/.test(name)) {
+      return Response.json(
+        { error: '3 to 20 characters: letters, numbers, underscore or dot.' },
+        { status: 400 },
+      );
+    }
+    patch.username = name;
+  }
+
+  if (preferredBooks !== undefined) {
+    if (!Array.isArray(preferredBooks) || preferredBooks.some((id) => typeof id !== 'string')) {
+      return Response.json({ error: 'Pick your books from the list.' }, { status: 400 });
+    }
+    const chosen = (preferredBooks as string[]).filter((id) => isSportsbook(id));
+    // An empty choice means "no preference", which is stored as null so the
+    // composer can tell it apart from somebody who deliberately picked none.
+    patch.preferred_books = chosen.length > 0 ? chosen : null;
+  }
 
   if (unitSize !== undefined) {
     const value = Number(unitSize);
@@ -39,6 +63,12 @@ export async function PATCH(request: Request) {
   const supabase = await createServerSupabase();
   const { error } = await supabase.from('profiles').update(patch).eq('user_id', user.id);
 
-  if (error) return Response.json({ error: 'Could not save that.' }, { status: 403 });
+  if (error) {
+    const taken = error.code === '23505';
+    return Response.json(
+      { error: taken ? 'That name is taken.' : 'Could not save that.' },
+      { status: taken ? 409 : 403 },
+    );
+  }
   return Response.json({ ok: true });
 }

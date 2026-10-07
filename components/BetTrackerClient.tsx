@@ -14,10 +14,19 @@ import type { TrackedBet } from '@/lib/betStats';
 export default function BetTrackerClient({
   bets,
   unitSize,
+  preferredBooks,
 }: {
   bets: readonly TrackedBet[];
   unitSize: number;
+  preferredBooks?: readonly string[];
 }) {
   const router = useRouter();
-  return <BetTracker bets={bets} unitSize={unitSize} onChanged={() => router.refresh()} />;
+  return (
+    <BetTracker
+      bets={bets}
+      unitSize={unitSize}
+      preferredBooks={preferredBooks}
+      onChanged={() => router.refresh()}
+    />
+  );
 }

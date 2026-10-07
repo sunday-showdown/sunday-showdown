@@ -53,3 +53,22 @@ export function bookUrl(id: string | null | undefined): string | null {
   if (!book || !book.host) return null;
   return `https://${book.host}`;
 }
+
+/** Whether an id names a book this app knows about. */
+export function isSportsbook(id: unknown): boolean {
+  return typeof id === 'string' && BY_ID.has(id);
+}
+
+/**
+ * The books to offer somebody, given what they said they use.
+ *
+ * Everything when they have expressed no preference, because a new person has
+ * not been asked yet and an empty list would be a dead end. "Somewhere else"
+ * always survives, so a one-off bet at a book they do not normally use is still
+ * loggable without a trip to settings.
+ */
+export function booksFor(preferred: readonly string[] | null | undefined): readonly Sportsbook[] {
+  if (!preferred || preferred.length === 0) return SPORTSBOOKS;
+  const wanted = new Set(preferred);
+  return SPORTSBOOKS.filter((book) => wanted.has(book.id) || book.id === 'other');
+}

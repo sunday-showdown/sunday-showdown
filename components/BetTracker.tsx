@@ -20,10 +20,12 @@ export default function BetTracker({
   bets,
   unitSize,
   onChanged,
+  preferredBooks,
 }: {
   bets: readonly TrackedBet[];
   unitSize: number;
   onChanged: () => void;
+  preferredBooks?: readonly string[];
 }) {
   const [logging, setLogging] = useState(false);
   const [filter, setFilter] = useState<'all' | 'open' | 'settled'>('all');
@@ -261,6 +263,7 @@ export default function BetTracker({
       </section>
 
       <BetSlipComposer
+        preferredBooks={preferredBooks}
         open={logging}
         onClose={() => setLogging(false)}
         channelId={null}

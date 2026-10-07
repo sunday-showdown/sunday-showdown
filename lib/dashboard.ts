@@ -12,6 +12,17 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadMyLeagues, type LeagueSummary } from './week';
+import { pointsForOdds } from './odds';
+
+export interface CardPick {
+  gameId: string;
+  market: string;
+  /** How the pick reads, with the matchup it belongs to. */
+  label: string;
+  matchup: string;
+  /** What it pays if it lands. */
+  worth: number;
+}
 
 export interface LeagueCard {
   league: LeagueSummary;
@@ -24,6 +35,9 @@ export interface LeagueCard {
   fieldSize: number;
   points: number;
   unread: number;
+  /** This week's card, so Home can show every league's at once. */
+  picks: CardPick[];
+  atStake: number;
 }
 
 export interface Dashboard {
@@ -35,6 +49,8 @@ export interface Dashboard {
     home_score: number | null;
     away_score: number | null;
   }[];
+  /** The next kickoff anywhere, for when nothing is live. */
+  nextGame: { id: string; home_abbr: string; away_abbr: string; start_time: string } | null;
 }
 
 export async function loadDashboard(
@@ -43,7 +59,7 @@ export async function loadDashboard(
 ): Promise<{ leagues: LeagueSummary[]; dashboard: Dashboard }> {
   const leagues = await loadMyLeagues(db, userId);
   if (leagues.length === 0) {
-    return { leagues, dashboard: { cards: [], liveGames: [] } };
+    return { leagues, dashboard: { cards: [], liveGames: [], nextGame: null } };
   }
 
   const leagueIds = leagues.map((l) => l.id);
@@ -80,12 +96,20 @@ export async function loadDashboard(
   const challengeIds = [...contestOf.values()].map((c) => c.id);
 
   const [{ data: myPicks }, { data: games }] = await Promise.all([
+    // The price and the label are stored on the pick itself, so a card can be
+    // rendered without touching the odds tables at all.
     challengeIds.length
-      ? db.from('picks').select('challenge_id').eq('user_id', userId).in('challenge_id', challengeIds)
-      : Promise.resolve({ data: [] as { challenge_id: string }[] }),
+      ? db
+          .from('picks')
+          .select(
+            'challenge_id, game_id, market_type, selection, selection_label, contest_line, contest_odds',
+          )
+          .eq('user_id', userId)
+          .in('challenge_id', challengeIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     db
       .from('nfl_games')
-      .select('id, season, week, home_abbr, away_abbr, home_score, away_score, status')
+      .select('id, season, week, home_abbr, away_abbr, home_score, away_score, status, start_time')
       .in('season', seasons),
   ]);
 
@@ -126,10 +150,32 @@ export async function loadDashboard(
     }
   }
 
+  const gameById = new Map(
+    gameRows.map((game) => [game.id as string, game as Record<string, unknown>]),
+  );
+
   const cards: LeagueCard[] = leagues.map((league) => {
     const contest = contestOf.get(league.id) ?? null;
     const table = pointsPer.get(league.id);
     const standing = table ? placeIn(table, userId) : null;
+
+    const picks: CardPick[] = contest
+      ? ((myPicks ?? []) as Record<string, unknown>[])
+          .filter((row) => row.challenge_id === contest.id)
+          .map((row) => {
+            const game = gameById.get(row.game_id as string);
+            return {
+              gameId: row.game_id as string,
+              market: row.market_type as string,
+              label: labelFor(row, game),
+              // The matchup belongs on every chip, not just the ones that name a
+              // team. "Over 43.5" on its own says nothing about which game it is,
+              // which made a card of totals unreadable at a glance.
+              matchup: game ? `${game.away_abbr} @ ${game.home_abbr}` : '',
+              worth: pointsForOdds((row.contest_odds as number) ?? null),
+            };
+          })
+      : [];
 
     return {
       league,
@@ -141,6 +187,8 @@ export async function loadDashboard(
       fieldSize: table?.size ?? 0,
       points: standing?.points ?? 0,
       unread: unreadPerLeague.get(league.id) ?? 0,
+      picks,
+      atStake: picks.reduce((sum, pick) => sum + pick.worth, 0),
     };
   });
 
@@ -154,7 +202,27 @@ export async function loadDashboard(
       away_score: (g.away_score as number) ?? null,
     }));
 
-  return { leagues, dashboard: { cards, liveGames } };
+  const now = Date.now();
+  const nextGame =
+    gameRows
+      .filter(
+        (g) =>
+          g.status === 'scheduled' &&
+          typeof g.start_time === 'string' &&
+          new Date(g.start_time).getTime() > now,
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.start_time as string).getTime() - new Date(b.start_time as string).getTime(),
+      )
+      .map((g) => ({
+        id: g.id as string,
+        home_abbr: g.home_abbr as string,
+        away_abbr: g.away_abbr as string,
+        start_time: g.start_time as string,
+      }))[0] ?? null;
+
+  return { leagues, dashboard: { cards, liveGames, nextGame } };
 }
 
 /**
@@ -172,4 +240,30 @@ function placeIn(table: Map<string, number>, userId: string): { rank: number; po
     if (points > mine) ahead += 1;
   }
   return { rank: ahead + 1, points: mine };
+}
+
+/**
+ * How a pick reads on a card chip.
+ *
+ * Grading writes selection_label once a week settles; before that there is none,
+ * so this builds the same string from the stored line and the game.
+ */
+function labelFor(
+  row: Record<string, unknown>,
+  game: Record<string, unknown> | undefined,
+): string {
+  const stored = row.selection_label as string | null;
+  if (stored) return stored;
+
+  const market = row.market_type as string;
+  const selection = row.selection as string;
+  const line = row.contest_line === null ? null : Number(row.contest_line);
+
+  if (market === 'total') {
+    return `${selection === 'over' ? 'Over' : 'Under'} ${line ?? ''}`.trim();
+  }
+
+  const abbr = (selection === 'home' ? game?.home_abbr : game?.away_abbr) as string | undefined;
+  if (market === 'moneyline') return `${abbr ?? selection} ML`;
+  return `${abbr ?? selection} ${line !== null && line > 0 ? `+${line}` : (line ?? '')}`.trim();
 }

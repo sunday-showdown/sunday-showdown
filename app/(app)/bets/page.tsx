@@ -20,7 +20,11 @@ export default async function BetsPage() {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(500),
-    supabase.from('profiles').select('unit_size').eq('user_id', user.id).maybeSingle(),
+    supabase
+      .from('profiles')
+      .select('unit_size, preferred_books')
+      .eq('user_id', user.id)
+      .maybeSingle(),
   ]);
 
   const bets: TrackedBet[] = (rows ?? []).map((row) => ({
@@ -38,7 +42,11 @@ export default async function BetsPage() {
   return (
     <main>
       <AppBar title="My bets" subtitle="Units, ROI and your real record" back="/profile" />
-      <BetTrackerClient bets={bets} unitSize={unitSize} />
+      <BetTrackerClient
+        bets={bets}
+        unitSize={unitSize}
+        preferredBooks={(profile?.preferred_books as string[]) ?? []}
+      />
     </main>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Sheet from './Sheet';
-import { SPORTSBOOKS } from '@/lib/sportsbooks';
+import { SPORTSBOOKS, booksFor } from '@/lib/sportsbooks';
 import { parlayOdds, toWin, formatMoney, MAX_LEGS, type BetLeg } from '@/lib/bets';
 import { formatOdds } from '@/lib/format';
 
@@ -29,6 +29,7 @@ export default function BetSlipComposer({
   channelId,
   leagueId,
   onShared,
+  preferredBooks,
 }: {
   open: boolean;
   onClose: () => void;
@@ -36,8 +37,13 @@ export default function BetSlipComposer({
   channelId: string | null;
   leagueId: string | null;
   onShared: () => void;
+  /** From settings. Empty or absent means offer everything. */
+  preferredBooks?: readonly string[];
 }) {
-  const [book, setBook] = useState<string>(SPORTSBOOKS[0]!.id);
+  // Only the books this person says they use, so the row is theirs rather
+  // than a list of eleven they have to scroll past every time.
+  const books = booksFor(preferredBooks);
+  const [book, setBook] = useState<string>(books[0]!.id);
   const [legs, setLegs] = useState<DraftLeg[]>([{ description: '', odds: '' }]);
   const [stake, setStake] = useState('');
   const [note, setNote] = useState('');
@@ -142,7 +148,7 @@ export default function BetSlipComposer({
     >
       <label className="eyebrow pb-2">Sportsbook</label>
       <div className="no-scrollbar -mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1">
-        {SPORTSBOOKS.map((option) => (
+        {books.map((option) => (
           <button
             key={option.id}
             type="button"
@@ -180,15 +186,10 @@ export default function BetSlipComposer({
               aria-label={`Leg ${index + 1}`}
               className="field min-w-0 flex-1"
             />
-            <input
+            <OddsField
               value={leg.odds}
-              onChange={(event) =>
-                setLeg(index, { odds: event.target.value.replace(/[^0-9+-]/g, '') })
-              }
-              inputMode="numeric"
-              placeholder="-110"
-              aria-label={`Leg ${index + 1} odds`}
-              className="field w-[86px] shrink-0 text-center tabnum"
+              onChange={(odds) => setLeg(index, { odds })}
+              label={`Leg ${index + 1} odds`}
             />
             {legs.length > 1 && (
               <button
@@ -234,13 +235,12 @@ export default function BetSlipComposer({
           <label htmlFor="total-odds" className="eyebrow pb-1.5">
             Total odds
           </label>
-          <input
-            id="total-odds"
+          <OddsField
             value={override}
-            onChange={(event) => setOverride(event.target.value.replace(/[^0-9+-]/g, ''))}
-            inputMode="numeric"
-            placeholder={computed !== null ? String(computed) : '+450'}
-            className="field tabnum"
+            onChange={setOverride}
+            label="Total odds"
+            placeholder={computed !== null ? String(Math.abs(computed)) : '450'}
+            full
           />
         </div>
       </div>
@@ -274,5 +274,63 @@ export default function BetSlipComposer({
           : 'Private to you, and counted in your record. No sportsbook lets an app read your actual wagers, so this is what you tell it.'}
       </p>
     </Sheet>
+  );
+}
+
+/**
+ * An American price, with its sign as a control rather than a character.
+ *
+ * The sign used to be typed into the field. On a phone it could not be: the
+ * field asks for a numeric keypad and no numeric keypad on iOS has a minus key,
+ * so a favourite — which is most bets — simply could not be entered. Switching
+ * the field to a full keyboard would fix the minus and cost everyone the keypad.
+ *
+ * So the sign is a button. It also makes the field self-explanatory, which a
+ * bare "-110" never was, and it defaults to the favourite because that is what
+ * most prices are.
+ */
+function OddsField({
+  value,
+  onChange,
+  label,
+  placeholder = '110',
+  full = false,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  label: string;
+  placeholder?: string;
+  full?: boolean;
+}) {
+  // A leading "+" is the only positive marker; anything else is a favourite.
+  const positive = value.trim().startsWith('+');
+  const digits = value.replace(/[^0-9]/g, '');
+
+  const write = (sign: boolean, magnitude: string) =>
+    onChange(magnitude === '' ? '' : `${sign ? '+' : '-'}${magnitude}`);
+
+  return (
+    <div className={`flex items-stretch gap-1 ${full ? 'w-full' : 'w-[118px] shrink-0'}`}>
+      <button
+        type="button"
+        onClick={() => write(!positive, digits)}
+        aria-label={`${label}: ${positive ? 'underdog, tap for favourite' : 'favourite, tap for underdog'}`}
+        className={`display tap w-11 shrink-0 rounded-xl border text-[18px] leading-none ${
+          positive
+            ? 'border-win/50 bg-win/15 text-win'
+            : 'border-line bg-raised text-ink'
+        }`}
+      >
+        {positive ? '+' : '−'}
+      </button>
+      <input
+        value={digits}
+        onChange={(event) => write(positive, event.target.value.replace(/[^0-9]/g, ''))}
+        inputMode="numeric"
+        placeholder={placeholder}
+        aria-label={label}
+        className="field min-w-0 flex-1 text-center tabnum"
+      />
+    </div>
   );
 }

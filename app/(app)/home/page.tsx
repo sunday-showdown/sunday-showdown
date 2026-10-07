@@ -4,17 +4,14 @@ import { resolveLeague } from '@/lib/league';
 import { loadDashboard } from '@/lib/dashboard';
 import { loadActiveModes, urgentCount } from '@/lib/modes';
 import { loadRecap } from '@/lib/recap';
-import { loadWeek } from '@/lib/week';
-import { cardLockState } from '@/lib/contest';
-import { formatCountdown, formatKickoff, describePick } from '@/lib/format';
-import { pointsForOdds } from '@/lib/odds';
+import { formatKickoff } from '@/lib/format';
 import EmptyState from '@/components/EmptyState';
 import ModesHub from '@/components/ModesHub';
 import ActiveModes from '@/components/ActiveModes';
 import RecapBanner from '@/components/RecapBanner';
 import NotificationBell from '@/components/NotificationBell';
 import AppBar from '@/components/AppBar';
-import LeagueCards from '@/components/LeagueCards';
+import LeagueWeekCard from '@/components/LeagueWeekCard';
 
 export const metadata = { title: 'Home' };
 export const dynamic = 'force-dynamic';
@@ -22,13 +19,11 @@ export const dynamic = 'force-dynamic';
 /**
  * The hub.
  *
- * Order is by what somebody opens the app to find out, which changes through the
- * week: last week's result on a Tuesday, then the card and its countdown, then
- * everything else they are in, and only then the grid of modes they could start.
- *
- * The previous version put the card itself at the very bottom, below a grid of
- * nine links — so the one thing with a deadline was the last thing on the screen
- * and it did not say which league it belonged to.
+ * Every league at once. There used to be an "active" league with a full-size
+ * hero and a smaller row for each of the others, so the active one appeared
+ * twice and the rest could only be read by switching the whole app over to
+ * them — which is a lot of work to answer "what do I still have to do", the
+ * question this screen exists for. The cards stack now and nothing is active.
  */
 export default async function HomePage() {
   const user = (await getSessionUser())!;
@@ -45,7 +40,7 @@ export default async function HomePage() {
   if (!league) {
     return (
       <main>
-        <AppBar title={username} subtitle="Welcome back" trailing={<NotificationBell />} />
+        <AppBar title="Home" trailing={<NotificationBell />} />
         <EmptyState
           title="Start a league"
           body="Create one and share the code, or join one a friend already set up."
@@ -66,24 +61,19 @@ export default async function HomePage() {
 
   const { cards, liveGames } = dashboard;
 
-  const week = await loadWeek(supabase, user.id, league, league.current_week);
+  // Sorted by what is about to close. With two leagues this is usually the same
+  // order every week, but when one has locked and the other has not, the one
+  // that still wants something belongs first.
+  const ordered = [...cards].sort((a, b) => {
+    const openness = (card: typeof a) => {
+      if (card.slate === 0) return 2;
+      const locked = card.lockTime !== null && new Date(card.lockTime).getTime() <= Date.now();
+      if (locked) return 3;
+      return card.picked >= card.slate ? 1 : 0;
+    };
+    return openness(a) - openness(b) || a.league.name.localeCompare(b.league.name);
+  });
 
-  // Same policy-aware check the pick sheet uses, so the hero on Home and the
-  // card itself cannot disagree about whether there is anything left to do.
-  const lockState = cardLockState(
-    week.games.map((game) => game.start_time),
-    week.challenge?.lock_time ?? null,
-    league.lock_policy,
-  );
-  const locked = lockState.allLocked;
-  const picked = week.myPicks.length;
-  const total = week.games.length;
-  const complete = total > 0 && picked >= total;
-  const nextGame = week.games.find((g) => g.status === 'scheduled');
-
-  // Everything else this person is in, across every league and pool, and last
-  // week's result. Both are per-league reads that Home already has the inputs
-  // for, so they go out together.
   const [activeModes, lastWeek] = await Promise.all([
     loadActiveModes(
       supabase,
@@ -103,50 +93,23 @@ export default async function HomePage() {
       : Promise.resolve(null),
   ]);
 
-  const oddsFor = (pick: { game_id: string; market_type: string; selection: string }) =>
-    (week.oddsByGame[pick.game_id] ?? []).find(
-      (o) => o.market_type === pick.market_type && o.selection === pick.selection,
-    )?.american_odds ?? null;
+  // Pick'em has a card of its own above for every league, so repeating it in the
+  // strip below would be the same information twice.
+  const otherModes = activeModes.filter((mode) => mode.kind !== 'pickem');
 
-  const atStake = week.myPicks.reduce((sum, pick) => sum + pointsForOdds(oddsFor(pick)), 0);
-
-  // What is left to do across every league, which is the question the top of
-  // this screen exists to answer. Only the things with a deadline count — see
-  // urgentCount.
   const outstanding = urgentCount(activeModes);
-
-  // The hero's own call to action. The previous version read "Finish your card"
-  // whenever a single pick existed, including on a card with every game in.
-  const heroLabel = locked
-    ? 'Review your card'
-    : complete
-      ? 'Change your picks'
-      : picked === 0
-        ? 'Make your picks'
-        : 'Finish your card';
-
-  const heroTitle = locked
-    ? 'Card locked'
-    : complete
-      ? 'Card complete'
-      : picked === 0
-        ? 'Make your picks'
-        : `${picked} of ${total} in`;
 
   return (
     <main className="pb-6">
+      {/* Compact: a name set in 34px display type was the largest thing on the
+          screen and the least useful. */}
       <AppBar
-        title={username}
-        subtitle={
-          outstanding > 0
-            ? `${outstanding} thing${outstanding === 1 ? '' : 's'} need${outstanding === 1 ? 's' : ''} you`
-            : 'All set'
-        }
+        title="Home"
+        subtitle={outstanding > 0 ? `${outstanding} need${outstanding === 1 ? 's' : ''} you` : undefined}
+        compact
         trailing={<NotificationBell />}
       />
 
-      {/* Tuesday first. Once a week is graded there is nothing live and the next
-          lock is days off, so the result is the news. */}
       {lastWeek?.graded && (
         <section className="px-4 pb-3">
           <RecapBanner
@@ -164,81 +127,17 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* The card, and which league it is for — the complaint about the old
-          layout was not being able to tell. */}
       <section className="px-4">
-        <div className={`card overflow-hidden p-4 ${locked || complete ? '' : 'card-hot'}`}>
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="eyebrow">
-                Week {league.current_week} · {league.name}
-              </div>
-              <div className="display mt-1.5 text-[34px] leading-[0.95]">{heroTitle}</div>
-            </div>
-
-            {!locked && week.challenge && (
-              <div className="shrink-0 text-right">
-                <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-muted">
-                  {league.lock_policy === 'per_game' ? 'Next locks' : 'Locks in'}
-                </div>
-                <div className="display text-glow text-[26px] leading-none tabnum text-brand">
-                  {lockState.nextLockAt
-                    ? formatCountdown(lockState.nextLockAt.getTime() - Date.now())
-                    : '—'}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {picked > 0 && (
-            <div className="mt-3 flex items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-raised">
-                <div
-                  className="h-full rounded-full bg-brand transition-[width] duration-500"
-                  style={{ width: `${total > 0 ? (picked / total) * 100 : 0}%` }}
-                />
-              </div>
-              <span className="display text-[15px] leading-none tabnum text-brand">{atStake}</span>
-              <span className="text-[10px] font-bold uppercase tracking-wide text-muted">
-                to win
-              </span>
-            </div>
-          )}
-
-          {/* The card itself, as a strip rather than sixteen rows at the foot of
-              the page. Scrollable, so it costs no height. */}
-          {week.myPicks.length > 0 && (
-            <div className="no-scrollbar -mx-4 mt-3 flex gap-1.5 overflow-x-auto px-4">
-              {week.myPicks.map((pick) => {
-                const game = week.games.find((g) => g.id === pick.game_id);
-                if (!game) return null;
-                const line = (week.oddsByGame[game.id] ?? []).find(
-                  (o) => o.market_type === pick.market_type && o.selection === pick.selection,
-                );
-
-                return (
-                  <div
-                    key={pick.game_id}
-                    className="shrink-0 rounded-xl bg-raised/80 px-2.5 py-1.5"
-                  >
-                    <div className="text-[12px] font-bold leading-none">
-                      {describePick(pick.market_type, pick.selection, game, line?.line, 'short')}
-                    </div>
-                    <div className="mt-1 text-[9px] font-bold leading-none text-brand tabnum">
-                      +{pointsForOdds(line?.american_odds ?? null)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <Link
-            href={liveGames.length > 0 ? '/live' : '/picks'}
-            className={`${locked ? 'btn-ghost' : 'btn-primary'} mt-4 w-full text-[15px]`}
-          >
-            {liveGames.length > 0 ? 'Watch it live' : heroLabel}
+        <div className="flex items-center justify-between pb-2">
+          <h2 className="eyebrow">{cards.length > 1 ? 'Your weeks' : 'This week'}</h2>
+          <Link href="/leagues" className="text-[11px] font-bold text-brand">
+            Leagues →
           </Link>
+        </div>
+        <div className="space-y-2">
+          {ordered.map((card) => (
+            <LeagueWeekCard key={card.league.id} card={card} />
+          ))}
         </div>
       </section>
 
@@ -277,7 +176,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {liveGames.length === 0 && nextGame && (
+      {liveGames.length === 0 && dashboard.nextGame && (
         <section className="mt-4 px-4">
           <div className="card flex items-center justify-between px-4 py-3">
             <div>
@@ -285,29 +184,18 @@ export default async function HomePage() {
                 Up next
               </div>
               <div className="display mt-0.5 text-[17px] leading-none">
-                {nextGame.away_abbr} <span className="text-muted">at</span> {nextGame.home_abbr}
+                {dashboard.nextGame.away_abbr} <span className="text-muted">at</span>{' '}
+                {dashboard.nextGame.home_abbr}
               </div>
             </div>
             <span className="text-xs font-semibold text-muted">
-              {formatKickoff(nextGame.start_time)}
+              {formatKickoff(dashboard.nextGame.start_time)}
             </span>
           </div>
         </section>
       )}
 
-      {/* Every mode you are actually in — pools, duels, buy-ins — not a menu. */}
-      <ActiveModes modes={activeModes} />
-
-      {/* Every league, not just the active one. Tapping switches. */}
-      <section className="mt-5">
-        <div className="flex items-center justify-between px-4 pb-2">
-          <h2 className="eyebrow">{cards.length > 1 ? 'Your leagues' : 'Your league'}</h2>
-          <Link href="/leagues" className="text-[11px] font-bold text-brand">
-            Manage →
-          </Link>
-        </div>
-        <LeagueCards cards={cards} activeId={league.id} />
-      </section>
+      <ActiveModes modes={otherModes} />
 
       <ModesHub />
     </main>
