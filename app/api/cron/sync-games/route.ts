@@ -14,6 +14,9 @@ import { syncTdWeek } from '@/lib/td';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+/** Nothing to pre-fetch past the regular season. */
+const LAST_REGULAR_WEEK = 18;
+
 export async function GET(request: Request) {
   if (!isAuthorizedCron(request)) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
@@ -52,6 +55,33 @@ export async function GET(request: Request) {
       },
     );
     report.warnings.push(...backfill.warnings);
+
+    // Next week's slate, so it can be opened before the week arrives.
+    //
+    // The contest cron opens the current week *and* the next one, on the stated
+    // intent that a slate is always pickable ahead of time. That has never
+    // worked: this job only ever fetched the current scoreboard, so opening
+    // week+1 found no games and warned "no games on the slate" on every single
+    // run. The week only appeared once ESPN rolled over on the Tuesday, which
+    // is precisely the behaviour opening ahead was meant to avoid.
+    //
+    // Best effort on purpose. A missing future slate is a mild degradation; the
+    // current week's scores and odds, already written above, are not worth
+    // risking for it.
+    if (scoreboard.week < LAST_REGULAR_WEEK) {
+      try {
+        const ahead = await fetchScoreboard({
+          week: scoreboard.week + 1,
+          season: scoreboard.season,
+        });
+        const aheadReport = await syncWeek(db, ahead);
+        report.warnings.push(...aheadReport.warnings);
+      } catch (aheadError) {
+        report.warnings.push(
+          `next week: ${aheadError instanceof Error ? aheadError.message : 'failed'}`,
+        );
+      }
+    }
 
     // TD candidates and prices follow the slate they are built from. Allowed to
     // fail on its own: a roster hiccup must not cost us the scores and odds
