@@ -198,12 +198,12 @@ export function buildActiveModes(input: ModesInput): ActiveMode[] {
     modes.push({
       key: `playground:${index}`,
       kind: 'playground',
-      title: 'Playground',
+      title: 'Calls',
       scope: card.leagueName,
       status: card.published ? 'Card published' : 'Draft saved',
       todo: card.published ? null : 'Publish it',
       tone: card.published ? 'ok' : 'idle',
-      href: '/playground',
+      href: '/calls',
       badge: null,
       icon: '🎲',
     });
@@ -238,7 +238,7 @@ function labelFor(mode: string): string {
     case 'h2h':
       return 'Duels';
     case 'playground':
-      return 'Playground';
+      return 'Calls';
     default:
       return "Pick'em";
   }
@@ -253,7 +253,7 @@ function hrefFor(mode: string): string {
     case 'h2h':
       return '/h2h';
     case 'playground':
-      return '/playground';
+      return '/calls';
     default:
       return '/picks';
   }

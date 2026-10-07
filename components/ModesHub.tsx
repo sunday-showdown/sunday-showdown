@@ -17,7 +17,7 @@ const MODES = [
   { href: '/survivor', title: 'Survivor', blurb: 'One team a week. Never twice.', icon: '🛡️', tint: 'bg-win/15' },
   { href: '/td', title: 'TD Scorer', blurb: 'Call the end zone.', icon: '🏈', tint: 'bg-brand/15' },
   { href: '/h2h', title: 'Duels', blurb: 'Fight a friend, week or season.', icon: '⚔️', tint: 'bg-gold/15' },
-  { href: '/playground', title: 'Playground', blurb: 'Wild calls, pure bragging.', icon: '🎲', tint: 'bg-brand/15' },
+  { href: '/calls', title: 'Calls', blurb: 'Back it publicly. Be held to it.', icon: '📣', tint: 'bg-brand/15' },
 ] as const;
 
 export default function ModesHub() {

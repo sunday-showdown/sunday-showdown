@@ -26,7 +26,7 @@ export const POT_LABEL: Record<PotMode, string> = {
   survivor: 'Survivor pot',
   td: 'TD Scorer pot',
   h2h: 'Head-to-head pot',
-  playground: 'Playground pot',
+  playground: 'Calls pot',
 };
 
 export interface PotMember {

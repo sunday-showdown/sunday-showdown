@@ -104,8 +104,8 @@ strip above it says the same thing twice.
 
 | Thing | Why | Risk |
 |---|---|---|
-| **Playground** | One card ever created. It has no clear loop — no scoring, no stakes, no deadline — and it costs a mode slot, a route, a pot, a chat room and a tile. | Low. Delete or fold into Duels. |
-| **TD Scorer's separate board** | Zero TD picks ever made. The model behind it is good; the question is whether it earns a top-level mode or belongs as a bonus line on the pick'em card. | Medium — it is a genuinely distinctive feature, just unproven. |
+| ~~Playground~~ → **Calls** | Renamed, not removed. The name said nothing; the feature is a public prediction with your name and a confidence on it. It still has no scoring and no deadline, and it overlaps the new Plays room — worth merging the two rather than running both. | Medium. |
+| **TD Scorer's separate board** | Zero TD picks ever made — but it is fully working: 996 priced players for week 5, 356 distinct prices from -150 to +3233, all from the model in lib/td-model.ts rather than from a book, because no free touchdown odds exist. The question is not whether it works; it is whether it earns a top-level mode or belongs as a bonus line on the pick'em card. | Medium — distinctive, just unproven. |
 | **The `/pot` and `/standings` routes** | Already reduced to nine-line redirect stubs. | **Keep them.** They protect saved home-screen shortcuts. |
 
 Nine modes is the root of the breadth problem. Pick'em, Survivor and Duels are

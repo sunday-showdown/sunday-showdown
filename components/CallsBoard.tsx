@@ -26,7 +26,7 @@ interface Props {
   leagueCalls: readonly LeagueCall[];
 }
 
-export default function PlaygroundCard({
+export default function CallsBoard({
   leagueId,
   season,
   week,
