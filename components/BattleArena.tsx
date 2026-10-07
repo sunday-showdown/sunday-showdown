@@ -194,23 +194,16 @@ function FighterPlinth({
   return (
     <div className={mine ? 'text-left' : 'text-right'}>
       <div className={`flex items-end gap-2 ${mine ? '' : 'flex-row-reverse'}`}>
-        <span
-          className={`flex h-[86px] w-14 shrink-0 items-end justify-center transition-[filter,transform,opacity] duration-700 ${
-            down ? 'opacity-40 grayscale' : ''
-          }`}
-          style={{
-            // The two fighters face each other, and a knocked-out one is on the
-            // floor rather than merely dimmed.
-            transform: down ? 'rotate(-16deg) translateY(5px)' : mine ? 'none' : 'scaleX(-1)',
-          }}
-        >
-          <FighterArt
-            archetype={side.fighter.archetype}
-            banner={side.fighter.banner}
-            size={52}
-            frame="full"
-          />
-        </span>
+        <FighterArt
+          archetype={side.fighter.archetype}
+          banner={side.fighter.banner}
+          size={78}
+          frame="full"
+          // They face each other rather than both facing the reader.
+          flip={!mine}
+          state={down ? 'down' : 'ready'}
+          glow
+        />
       </div>
 
       <div className="mt-1.5 truncate text-[13px] font-bold">{side.fighter.name}</div>

@@ -273,3 +273,66 @@ nav {
     opacity: 1;
   }
 }
+
+/* The fighters. Transform-only, so none of this costs a layout, and the
+   reduced-motion rule above collapses all of it to a single frame.
+
+   These are not redrawn frames — the art is one painted image per character —
+   so the movement has to come from how the figure is pushed around. Which is
+   plenty: a slow breath makes a still image feel alive, and a recoil reads as
+   a hit without any new artwork. */
+@keyframes fighter-idle {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-2.5%) scale(1.012);
+  }
+}
+
+/* Squaring up: a shorter, harder bob with a little weight shift. */
+@keyframes fighter-ready {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  35% {
+    transform: translateY(-3.5%) rotate(-1.2deg);
+  }
+  70% {
+    transform: translateY(-1%) rotate(1deg);
+  }
+}
+
+/* Taking one. */
+@keyframes fighter-hit {
+  0% {
+    transform: translateX(0) rotate(0deg);
+  }
+  18% {
+    transform: translateX(-7%) rotate(-5deg);
+  }
+  42% {
+    transform: translateX(4%) rotate(3deg);
+  }
+  68% {
+    transform: translateX(-2%) rotate(-1.5deg);
+  }
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+}
+
+/* Going down. Pivots on the feet rather than sliding, so it reads as falling
+   rather than as being dragged off the screen. */
+@keyframes fighter-down {
+  0% {
+    transform: rotate(0deg) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-16deg) translateY(8%);
+    opacity: 0.72;
+  }
+}

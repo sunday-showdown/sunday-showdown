@@ -31,8 +31,12 @@ export const ARCHETYPES = [
     position: 'Quarterback',
     blurb: 'Already knows how this ends.',
     strike: 'The Dagger',
-    /** The accent on the visor, so six fighters differ even in one banner. */
+    /** The character's own accent, used for UI chrome around the art. */
     visor: '#7fe3ff',
+    /** Where the helmet sits, as a percent of the art, for the bust crop. */
+    head: { x: 50, y: 9 },
+    /** The prepared art's pixel size, so a crop can be worked out exactly. */
+    art: { w: 233, h: 400 },
   },
   {
     id: 'speedster',
@@ -41,6 +45,10 @@ export const ARCHETYPES = [
     blurb: 'You get one step. You will not use it.',
     strike: 'Overdrive',
     visor: '#9dff6a',
+    /** Where the helmet sits, as a percent of the art, for the bust crop. */
+    head: { x: 72, y: 11 },
+    /** The prepared art's pixel size, so a crop can be worked out exactly. */
+    art: { w: 320, h: 400 },
   },
   {
     id: 'playmaker',
@@ -49,6 +57,10 @@ export const ARCHETYPES = [
     blurb: 'Never looks like he is trying.',
     strike: 'Cutback',
     visor: '#ffd24a',
+    /** Where the helmet sits, as a percent of the art, for the bust crop. */
+    head: { x: 78, y: 14 },
+    /** The prepared art's pixel size, so a crop can be worked out exactly. */
+    art: { w: 385, h: 400 },
   },
   {
     id: 'bruiser',
@@ -57,6 +69,10 @@ export const ARCHETYPES = [
     blurb: 'Would rather go through you than round you.',
     strike: 'Battering Ram',
     visor: '#ff8a4a',
+    /** Where the helmet sits, as a percent of the art, for the bust crop. */
+    head: { x: 62, y: 11 },
+    /** The prepared art's pixel size, so a crop can be worked out exactly. */
+    art: { w: 346, h: 400 },
   },
   {
     id: 'enforcer',
@@ -65,6 +81,10 @@ export const ARCHETYPES = [
     blurb: 'Hunting contact, not tackles.',
     strike: 'The Hammer',
     visor: '#ff6b7d',
+    /** Where the helmet sits, as a percent of the art, for the bust crop. */
+    head: { x: 60, y: 11 },
+    /** The prepared art's pixel size, so a crop can be worked out exactly. */
+    art: { w: 300, h: 400 },
   },
   {
     id: 'juggernaut',
@@ -73,6 +93,10 @@ export const ARCHETYPES = [
     blurb: 'Smiling, because nobody has stopped him yet.',
     strike: 'Collapse',
     visor: '#c89dff',
+    /** Where the helmet sits, as a percent of the art, for the bust crop. */
+    head: { x: 55, y: 11 },
+    /** The prepared art's pixel size, so a crop can be worked out exactly. */
+    art: { w: 341, h: 400 },
   },
 ] as const;
 

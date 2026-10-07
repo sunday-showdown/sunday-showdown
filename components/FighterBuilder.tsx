@@ -102,7 +102,15 @@ export default function FighterBuilder({ fighter }: { fighter: Fighter }) {
       >
         <div className="space-y-5">
           <div className="flex items-center gap-3 rounded-2xl bg-raised/60 p-3">
-            <FighterArt archetype={archetype} banner={banner} size={66} frame="full" className="shrink-0" />
+            <FighterArt
+              archetype={archetype}
+              banner={banner}
+              size={104}
+              frame="full"
+              state="ready"
+              glow
+              className="shrink-0"
+            />
             <div className="min-w-0">
               <div className="display truncate text-[20px] leading-none">{name || 'Unnamed'}</div>
               <div className="mt-1 text-[11px] text-muted">
@@ -144,7 +152,7 @@ export default function FighterBuilder({ fighter }: { fighter: Fighter }) {
                   {/* Each tile previews in the colour being chosen, so the two
                       decisions can be made together rather than one then the
                       other. */}
-                  <FighterArt archetype={option.id} banner={banner} size={34} frame="full" />
+                  <FighterArt archetype={option.id} banner={banner} size={52} frame="full" />
                   <span className="mt-1 text-[11px] font-bold leading-none">{option.name}</span>
                   <span className="mt-1 text-center text-[9px] leading-tight text-muted">
                     {option.position}

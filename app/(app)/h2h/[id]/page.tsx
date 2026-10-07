@@ -139,9 +139,15 @@ function Corner({ side, mine }: { side: MatchupSide; mine: boolean }) {
   return (
     <div className={mine ? 'text-left' : 'text-right'}>
       <div className={`flex ${mine ? '' : 'justify-end'}`}>
-        <span style={{ transform: mine ? undefined : 'scaleX(-1)' }}>
-          <FighterArt archetype={side.fighter.archetype} banner={side.fighter.banner} size={58} frame="full" />
-        </span>
+        <FighterArt
+          archetype={side.fighter.archetype}
+          banner={side.fighter.banner}
+          size={92}
+          frame="full"
+          flip={!mine}
+          state={side.hp <= 0 ? 'down' : 'idle'}
+          glow
+        />
       </div>
       <div className="mt-1.5 truncate text-[14px] font-bold">{side.fighter.name}</div>
       <Link

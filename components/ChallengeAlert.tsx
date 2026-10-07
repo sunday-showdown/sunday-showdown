@@ -103,7 +103,14 @@ export default function ChallengeAlert({
         className="mt-4 flex items-center justify-center"
         style={{ animation: 'challenge-stomp 1.1s cubic-bezier(0.22, 1, 0.36, 1) both' }}
       >
-        <FighterArt archetype={fighter.archetype} banner={fighter.banner} size={132} frame="full" />
+        <FighterArt
+          archetype={fighter.archetype}
+          banner={fighter.banner}
+          size={210}
+          frame="full"
+          state="ready"
+          glow
+        />
       </div>
 
       <h2 className="display mt-4 text-center text-[32px] leading-[0.95]">{fighter.name}</h2>
