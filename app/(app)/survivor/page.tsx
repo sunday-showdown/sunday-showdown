@@ -119,10 +119,16 @@ export default async function SurvivorPage({
   const board = await loadPoolBoard(supabase, user.id, pool.id as string, week);
 
   // The pot belongs to this pool, not to survivor in general, so two pools can
-  // run different buy-ins. A pool with no league has nowhere to hang one yet.
-  const pot = poolLeagueId
-    ? await loadPot(supabase, user.id, { id: poolLeagueId, season }, 'survivor', pool.id as string)
-    : null;
+  // run different buy-ins — and it collects from the pool's own members, which
+  // may include friends from outside any league. A pool with no league holds a
+  // pot just the same.
+  const pot = await loadPot(
+    supabase,
+    user.id,
+    { leagueId: poolLeagueId, season },
+    'survivor',
+    pool.id as string,
+  );
 
   // Who this person could invite: their leagues, plus anyone they follow.
   const [{ data: leagueMates }, { data: following }] = await Promise.all([
@@ -273,14 +279,12 @@ export default async function SurvivorPage({
           buyIn={Math.round(Number(pool.buy_in ?? 0))}
           candidates={candidates}
         />
-        {pot && poolLeagueId && (
-          <ModePot
-            pot={pot}
-            leagueId={poolLeagueId}
-            season={season}
-            competitionId={pool.id as string}
-          />
-        )}
+        <ModePot
+          pot={pot}
+          leagueId={poolLeagueId}
+          season={season}
+          competitionId={pool.id as string}
+        />
         {poolLeagueId && (
           <ModeChatButton leagueId={poolLeagueId} mode="survivor" label="Survivor" />
         )}

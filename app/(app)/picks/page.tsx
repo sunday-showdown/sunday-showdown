@@ -54,7 +54,7 @@ export default async function PicksPage({
 
   const [data, pot, channels] = await Promise.all([
     loadWeek(supabase, user.id, league, week),
-    loadPot(supabase, user.id, league, 'pickem'),
+    loadPot(supabase, user.id, { leagueId: league.id, season: league.season }, 'pickem'),
     loadChannels(supabase, user.id),
   ]);
 

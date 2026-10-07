@@ -6,7 +6,6 @@ import { loadPot } from '@/lib/pot';
 import DuelPanel from '@/components/DuelPanel';
 import EmptyState from '@/components/EmptyState';
 import AppBar from '@/components/AppBar';
-import LeagueSwitcher from '@/components/LeagueSwitcher';
 import ModePot from '@/components/ModePot';
 import ModeChatButton from '@/components/ModeChatButton';
 
@@ -16,13 +15,17 @@ export const dynamic = 'force-dynamic';
 export default async function H2HPage({
   searchParams,
 }: {
-  searchParams: Promise<{ league?: string; duel?: string }>;
+  searchParams: Promise<{ duel?: string }>;
 }) {
   const user = (await getSessionUser())!;
   const params = await searchParams;
   const supabase = await createServerSupabase();
 
-  const { leagues, league } = await resolveLeague(supabase, user.id, params.league);
+  // No switcher on this screen: a duel can be against anybody, so asking which
+  // league you are "in" to look at your fights was a question with no bearing on
+  // the answer. The active league still decides the season and the week, which
+  // is all the arena needs from it.
+  const { leagues, league } = await resolveLeague(supabase, user.id);
 
   // A duel is played with your Pick'em card, so it needs a league to read one
   // from — but only your own. Who you may fight is a separate question, answered
@@ -46,7 +49,7 @@ export default async function H2HPage({
 
   const [view, pot] = await Promise.all([
     loadDuels(supabase, user.id, league.season, leagues),
-    loadPot(supabase, user.id, league, 'h2h'),
+    loadPot(supabase, user.id, { leagueId: league.id, season: league.season }, 'h2h'),
   ]);
 
   const roundsLeftFor = Object.fromEntries(
@@ -65,7 +68,6 @@ export default async function H2HPage({
             : 'Call out a friend or a league mate'
         }
         back="/home"
-        trailing={<LeagueSwitcher leagues={leagues} currentId={league.id} />}
       />
 
       <DuelPanel

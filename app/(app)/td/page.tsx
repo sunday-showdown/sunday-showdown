@@ -112,7 +112,7 @@ export default async function TdPage({
     });
   }
 
-  const pot = await loadPot(supabase, user.id, league, 'td');
+  const pot = await loadPot(supabase, user.id, { leagueId: league.id, season: league.season }, 'td');
 
   return (
     <main className="pb-4">

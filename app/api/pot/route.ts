@@ -26,7 +26,10 @@ export async function POST(request: Request) {
 
   if (action === 'create') {
     const { leagueId, season, buyIn, name, competitionType, competitionId } = body as Record<string, unknown>;
-    if (typeof leagueId !== 'string' || typeof season !== 'number') {
+    // leagueId may legitimately be null: a survivor pool started outside any
+    // league still collects a buy-in, and migration 0022 already allows a pot
+    // row with no league.
+    if ((leagueId !== null && typeof leagueId !== 'string') || typeof season !== 'number') {
       return Response.json({ error: 'league and season are required' }, { status: 400 });
     }
     // Each mode carries its own pot. Defaulting to pick'em keeps a client that
@@ -44,7 +47,7 @@ export async function POST(request: Request) {
         name: typeof name === 'string' && name.trim() ? name.trim() : POT_LABEL[mode],
         competition_type: mode,
         competition_id: typeof competitionId === 'string' ? competitionId : null,
-        league_id: leagueId,
+        league_id: leagueId ?? null,
         owner_id: user.id,
         season,
         buy_in: amount,
@@ -65,7 +68,9 @@ export async function POST(request: Request) {
       lookup =
         typeof competitionId === 'string'
           ? lookup.eq('competition_id', competitionId)
-          : lookup.eq('league_id', leagueId).is('competition_id', null);
+          : leagueId
+            ? lookup.eq('league_id', leagueId).is('competition_id', null)
+            : lookup.is('league_id', null).is('competition_id', null);
 
       const { data: existing } = await lookup.maybeSingle();
 

@@ -52,18 +52,37 @@ export async function POST(request: Request) {
     );
   }
 
-  // A duel inside a league needs both of us in it; otherwise it is a friend
-  // duel and each side brings their own card.
-  let sharedLeagueId: string | null = null;
-  if (typeof leagueId === 'string' && leagueId) {
-    const { data: both } = await supabase
-      .from('league_members')
-      .select('user_id')
-      .eq('league_id', leagueId)
-      .in('user_id', [user.id, opponentId]);
+  // Which league, if any, the two of us share.
+  //
+  // Worked out here rather than taken from the request. The client used to have
+  // to name the league, the arena did not name one because a duel is not a
+  // league feature, and so every challenge was submitted as a friend duel —
+  // which the insert policy then refused unless the two players also followed
+  // each other. Challenging a league mate failed outright, with an error
+  // message about friendship that had nothing to do with it.
+  //
+  // A named league is still honoured as a preference when it is one we really
+  // do share; otherwise any shared league will do, with the active one first so
+  // the duel lands where the challenger is actually playing.
+  const { data: shared } = await supabase
+    .from('league_members')
+    .select('league_id')
+    .eq('user_id', opponentId);
 
-    if ((both ?? []).length === 2) sharedLeagueId = leagueId;
-  }
+  const theirLeagues = new Set(((shared ?? []) as { league_id: string }[]).map((r) => r.league_id));
+
+  const { data: mineRows } = await supabase
+    .from('league_members')
+    .select('league_id')
+    .eq('user_id', user.id);
+
+  const common = ((mineRows ?? []) as { league_id: string }[])
+    .map((r) => r.league_id)
+    .filter((id) => theirLeagues.has(id));
+
+  const sharedLeagueId =
+    (typeof leagueId === 'string' && common.includes(leagueId) ? leagueId : null) ??
+    (common.includes(myLeague.id) ? myLeague.id : (common[0] ?? null));
 
   const insert = {
     challenger_id: user.id,

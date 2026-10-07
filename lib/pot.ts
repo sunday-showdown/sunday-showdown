@@ -61,7 +61,12 @@ export interface PotView {
 export async function loadPot(
   db: SupabaseClient,
   userId: string,
-  league: { id: string; season: number },
+  /**
+   * Where the pot lives. The league is optional: a survivor pool can be started
+   * by anybody and invited to by code, so it need not belong to a league at all,
+   * and such a pool could not hold a pot while this required one.
+   */
+  scope: { leagueId: string | null; season: number },
   mode: PotMode,
   /** For a pot that belongs to one pool rather than to the mode in general. */
   competitionId?: string,
@@ -69,18 +74,34 @@ export async function loadPot(
   let potQuery = db
     .from('pots')
     .select('id, buy_in, confirmed_pool, projected_pool, owner_id')
-    .eq('season', league.season)
+    .eq('season', scope.season)
     .eq('competition_type', mode);
 
   potQuery = competitionId
     ? potQuery.eq('competition_id', competitionId)
-    : potQuery.eq('league_id', league.id).is('competition_id', null);
+    : scope.leagueId
+      ? potQuery.eq('league_id', scope.leagueId).is('competition_id', null)
+      : potQuery.is('league_id', null).is('competition_id', null);
 
-  const [{ data: pot }, { data: memberRows }] = await Promise.all([
+  // Who the pot is collecting from.
+  //
+  // This used to be the league roster in every case, which is wrong for a pot
+  // that belongs to one competition: a survivor pool can contain friends from
+  // outside the league and need not contain everybody in it, so the list showed
+  // people who owed nothing and omitted people who did.
+  const rosterQuery =
+    competitionId && mode === 'survivor'
+      ? db.from('survivor_members').select('user_id').eq('pool_id', competitionId)
+      : scope.leagueId
+        ? db.from('league_members').select('user_id').eq('league_id', scope.leagueId)
+        : null;
+
+  const [{ data: pot }, roster] = await Promise.all([
     potQuery.maybeSingle(),
-    db.from('league_members').select('user_id').eq('league_id', league.id),
+    rosterQuery ?? Promise.resolve({ data: [] as { user_id: string }[] }),
   ]);
 
+  const memberRows = roster.data;
   const memberIds = (memberRows ?? []).map((m) => m.user_id as string);
 
   const [{ data: profiles }, { data: participants }] = await Promise.all([

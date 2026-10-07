@@ -84,7 +84,7 @@ export default async function PlaygroundPage({
   const nameOf = new Map((profiles ?? []).map((p) => [p.user_id as string, p.username as string]));
   const authorOfCard = new Map((publishedCards ?? []).map((c) => [c.id as string, c.user_id as string]));
 
-  const pot = await loadPot(supabase, user.id, league, 'playground');
+  const pot = await loadPot(supabase, user.id, { leagueId: league.id, season: league.season }, 'playground');
 
   return (
     <main className="pb-4">

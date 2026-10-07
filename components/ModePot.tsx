@@ -29,7 +29,8 @@ export default function ModePot({
   competitionId,
 }: {
   pot: PotView;
-  leagueId: string;
+  /** Null for a pot that belongs to a competition rather than to a league. */
+  leagueId: string | null;
   season: number;
   /** Set when the pot belongs to one pool rather than to the mode in general. */
   competitionId?: string;
