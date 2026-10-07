@@ -3,7 +3,7 @@ import { createServerSupabase, getSessionUser } from '@/lib/supabase/server';
 import { resolveLeague } from '@/lib/league';
 import { loadDashboard } from '@/lib/dashboard';
 import { loadActiveModes, urgentCount } from '@/lib/modes';
-import { loadRecap } from '@/lib/recap';
+import { loadRecapSummary } from '@/lib/recap';
 import { formatKickoff } from '@/lib/format';
 import EmptyState from '@/components/EmptyState';
 import ModesHub from '@/components/ModesHub';
@@ -89,7 +89,7 @@ export default async function HomePage() {
       })),
     ),
     league.current_week > 1
-      ? loadRecap(supabase, user.id, league, league.current_week - 1)
+      ? loadRecapSummary(supabase, user.id, league, league.current_week - 1)
       : Promise.resolve(null),
   ]);
 
@@ -116,9 +116,9 @@ export default async function HomePage() {
             week={lastWeek.week}
             leagueName={league.name}
             headline={lastWeek.headline}
-            points={lastWeek.summary.points}
-            record={`${lastWeek.summary.wins}-${lastWeek.summary.losses}${
-              lastWeek.summary.pushes > 0 ? `-${lastWeek.summary.pushes}` : ''
+            points={lastWeek.points}
+            record={`${lastWeek.wins}-${lastWeek.losses}${
+              lastWeek.pushes > 0 ? `-${lastWeek.pushes}` : ''
             }`}
             rank={lastWeek.rank}
             fieldSize={lastWeek.fieldSize}

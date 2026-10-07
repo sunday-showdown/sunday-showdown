@@ -30,7 +30,10 @@ export default function WeekSelector({ week, maxWeek = 18 }: { week: number; max
           onClick={() => go(n)}
           aria-current={n === week ? 'true' : undefined}
           aria-label={`Week ${n}`}
-          className={`display h-9 w-9 shrink-0 rounded-xl text-[14px] leading-none transition-colors ${
+          // 44pt is Apple's minimum comfortable target and these were 36.
+          // Eighteen of them in a scrolling row is exactly the place a thumb
+          // misses, because the row moves under it.
+          className={`display h-11 w-11 shrink-0 rounded-xl text-[14px] leading-none transition-colors ${
             n === week
               ? 'bg-brand text-brand-ink glow-brand'
               : 'bg-raised text-muted active:bg-line/60'

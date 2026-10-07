@@ -407,3 +407,81 @@ function describeFromRow(
   return `${abbr ?? selection} ${line !== null && line > 0 ? `+${line}` : (line ?? '')}`.trim();
 }
 
+
+export interface RecapSummary {
+  week: number;
+  graded: boolean;
+  headline: string;
+  points: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  rank: number | null;
+  fieldSize: number;
+  isWinner: boolean;
+}
+
+/**
+ * Just enough of last week for the banner on Home.
+ *
+ * loadRecap pulls every pick with its game, every duel, the survivor rows and
+ * the TD card — which is right for the recap screen and absurd for a strip
+ * showing three numbers. Home was spending most of its two seconds here, and
+ * the recap screen is one tap away for anybody who wants the rest.
+ *
+ * Three queries instead of nine, and none of them join.
+ */
+export async function loadRecapSummary(
+  db: SupabaseClient,
+  userId: string,
+  league: LeagueSummary,
+  week: number,
+): Promise<RecapSummary> {
+  const [{ data: results }, { data: picks }] = await Promise.all([
+    db
+      .from('weekly_results')
+      .select('user_id, total_points, rank, is_winner')
+      .eq('league_id', league.id)
+      .eq('season', league.season)
+      .eq('week', week),
+    db
+      .from('picks')
+      .select('result')
+      .eq('user_id', userId)
+      .eq('league_id', league.id)
+      .eq('season', league.season)
+      .eq('week', week),
+  ]);
+
+  const rows = results ?? [];
+  const mine = rows.find((row) => row.user_id === userId) ?? null;
+
+  let wins = 0;
+  let losses = 0;
+  let pushes = 0;
+  for (const pick of (picks ?? []) as { result: string }[]) {
+    if (pick.result === 'win') wins += 1;
+    else if (pick.result === 'loss') losses += 1;
+    else if (pick.result === 'push') pushes += 1;
+  }
+
+  const rank = mine ? ((mine.rank as number) ?? null) : null;
+  const isWinner = Boolean(mine?.is_winner);
+  const points = Math.round(Number(mine?.total_points ?? 0));
+  const movement = await loadMovement(db, userId, league.id, league.season, week, rows);
+
+  return {
+    week,
+    // Same signal the full recap uses: grading writes these rows, so their
+    // absence means the week is not in rather than that it went badly.
+    graded: rows.length > 0,
+    headline: recapHeadline({ rank, fieldSize: rows.length, points, movement, isWinner }),
+    points,
+    wins,
+    losses,
+    pushes,
+    rank,
+    fieldSize: rows.length,
+    isWinner,
+  };
+}

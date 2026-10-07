@@ -118,7 +118,7 @@ export default function PickCard({
                       aria-pressed={isSelected}
                       aria-label={`${label}${pays !== null ? `, pays ${pays}` : ''}`}
                       onClick={() => choose(market, side)}
-                      className={`relative flex min-h-[58px] flex-col items-center justify-center rounded-xl border px-1 py-1.5
+                      className={`relative flex min-h-[52px] flex-col items-center justify-center rounded-xl border px-1 py-1.5
                         transition-[transform,background-color,box-shadow] duration-150
                         active:scale-[0.97] ${
                           isSelected
@@ -136,32 +136,36 @@ export default function PickCard({
                           : undefined
                       }
                     >
-                      <span className="text-[13px] font-bold leading-tight tabnum">{label}</span>
+                      <span className="text-[13.5px] font-bold leading-tight tabnum">{label}</span>
 
-                      {/* The payout and the price were running together and
-                          reading as one number. The payout is what the player
-                          actually scores, so it gets a pill of its own and the
-                          price sits underneath as context. */}
-                      <span className="mt-1 flex flex-col items-center gap-0.5">
-                        {pays !== null && (
-                          <span
-                            className={`display rounded-md px-1.5 py-[1px] text-[11px] leading-[1.25] tabnum ${
-                              isSelected
-                                ? 'bg-brand-ink/20 text-brand-ink'
-                                : 'bg-brand/15 text-brand'
-                            }`}
-                          >
-                            {pays} pts
-                          </span>
-                        )}
+                      {/* One number, not three.
+                          
+                          Every option used to carry its label, its payout in a
+                          pill reading "19 pts", and the book price underneath.
+                          On a fifteen-game slate that is six buttons a game and
+                          around 270 figures on one screen, and two of the three
+                          say the same thing — the payout is derived from the
+                          price, so printing both adds load without adding
+                          information.
+                          
+                          What survives is the payout, because that is what the
+                          competition is scored in. The price comes back on the
+                          one option you actually chose, where it is a single
+                          line per game rather than six. */}
+                      {pays !== null && (
                         <span
-                          className={`text-[9px] font-semibold leading-none tabnum ${
-                            isSelected ? 'text-brand-ink/70' : 'text-muted'
+                          className={`display mt-1 text-[12.5px] leading-none tabnum ${
+                            isSelected ? 'text-brand-ink' : 'text-brand'
                           }`}
                         >
-                          {price ?? '—'}
+                          +{pays}
                         </span>
-                      </span>
+                      )}
+                      {isSelected && price && (
+                        <span className="mt-0.5 text-[9px] font-semibold leading-none tabnum text-brand-ink/70">
+                          {price}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
